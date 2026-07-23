@@ -18,7 +18,7 @@ type ModulePagesProps = {
   selectedId: string
   editingId: string | null
   onSelectBridge: (id: string) => void
-  onOpenOverview: () => void
+  onOpenOverview: (structureId?: string) => void
   onOpenInspections: () => void
   onOpenCreateModel: () => void
   onEditStructure: (id: string) => void
@@ -376,7 +376,7 @@ export function ModulePages({
                     >
                       Site curves
                     </a>
-                    <button type="button" className="page-btn" onClick={onOpenOverview}>
+                    <button type="button" className="page-btn" onClick={() => onOpenOverview()}>
                       View in twin
                     </button>
                   </div>
@@ -384,7 +384,7 @@ export function ModulePages({
               ) : (
                 <>
                   <p className="nshm-hazard-pending">Assessing NSHM seismic hazard…</p>
-                  <button type="button" className="page-btn primary" onClick={onOpenOverview}>
+                  <button type="button" className="page-btn primary" onClick={() => onOpenOverview()}>
                     View in twin
                   </button>
                 </>
@@ -512,7 +512,7 @@ export function ModulePages({
             Worklist costs come from inspection activity selections. Forecast $M rows remain
             indicative programme envelopes.
           </p>
-          <button type="button" className="page-btn primary" onClick={onOpenOverview}>
+          <button type="button" className="page-btn primary" onClick={() => onOpenOverview()}>
             Back to twin overview
           </button>
         </PageShell>
@@ -559,7 +559,7 @@ export function ModulePages({
               <strong>{bridges.reduce((s, b) => s + b.defects.length, 0)}</strong>
             </article>
           </div>
-          <button type="button" className="page-btn primary" onClick={onOpenOverview}>
+          <button type="button" className="page-btn primary" onClick={() => onOpenOverview()}>
             Open live twin
           </button>
         </PageShell>
@@ -578,7 +578,7 @@ export function ModulePages({
             focusBridge={bridge}
           />
           <div className="nshm-hazard-actions" style={{ marginTop: '0.75rem' }}>
-            <button type="button" className="page-btn primary" onClick={onOpenOverview}>
+            <button type="button" className="page-btn primary" onClick={() => onOpenOverview()}>
               Open selected in twin
             </button>
             {bridge.seismicHazard ? (
@@ -665,7 +665,7 @@ export function ModulePages({
             <button type="button" className="page-btn" onClick={onExportDatabase}>
               Export database
             </button>
-            <button type="button" className="page-btn" onClick={onOpenOverview}>
+            <button type="button" className="page-btn" onClick={() => onOpenOverview()}>
               Return to overview
             </button>
           </div>

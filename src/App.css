@@ -92,6 +92,14 @@ p {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.brand:hover .brand-title {
+  color: var(--accent);
 }
 
 .brand-mark {
@@ -115,6 +123,288 @@ p {
 .brand-sub {
   color: var(--muted);
   font-size: 0.75rem;
+}
+
+/* —— Home launcher —— */
+.home-launcher {
+  min-width: 0;
+  padding: 1.25rem 1.5rem 2rem;
+  overflow: auto;
+  background:
+    radial-gradient(ellipse 80% 55% at 12% 0%, rgba(14, 165, 233, 0.16), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 88% 8%, rgba(245, 158, 11, 0.1), transparent 50%),
+    linear-gradient(180deg, rgba(8, 13, 24, 0.2), transparent 40%),
+    var(--bg);
+}
+
+.home-hero {
+  max-width: 42rem;
+  margin-bottom: 1.35rem;
+  animation: home-fade-up 0.55s ease both;
+}
+
+.home-kicker {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--text);
+}
+
+.home-kicker.subtle {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-weight: 650;
+}
+
+.home-hero h1 {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #cbd5e1;
+}
+
+.home-lead {
+  margin-top: 0.55rem;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.home-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 1.1rem;
+  align-items: start;
+  min-height: min(70vh, 720px);
+}
+
+.home-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.home-menu-item {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+  animation: home-fade-up 0.5s ease both;
+}
+
+.home-menu-item:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+.home-menu-item.active {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+.home-menu-meta {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.home-menu-item strong {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.home-menu-item > span:last-child {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.home-panel {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(12, 18, 30, 0.82);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.1rem 1.1rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  animation: home-fade-up 0.6s ease 0.08s both;
+}
+
+.home-panel-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.home-panel-head h2 {
+  margin-top: 0.15rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.home-search {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.home-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0b1220;
+  padding: 0.7rem 0.85rem;
+  outline: none;
+}
+
+.home-search input:focus {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+.home-panel-body {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.home-structure-list {
+  overflow: auto;
+  max-height: min(52vh, 520px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-right: 0.15rem;
+}
+
+.home-structure-list button {
+  width: 100%;
+  display: grid;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #101827;
+}
+
+.home-structure-list button:hover,
+.home-structure-list button.active {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.home-structure-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
+.home-structure-list strong {
+  font-size: 0.88rem;
+}
+
+.home-structure-list button > span:last-child {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.home-map-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 280px;
+}
+
+.home-map-pane .context-map {
+  flex: 1;
+  min-height: 280px;
+  height: min(42vh, 420px);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.home-map-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.home-map-meta strong {
+  display: block;
+}
+
+.home-map-meta span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.home-map-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.home-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.75rem;
+}
+
+@keyframes home-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .home-layout,
+  .home-panel-body {
+    grid-template-columns: 1fr;
+  }
+
+  .home-menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .home-structure-list {
+    max-height: 220px;
+  }
 }
 
 .top-nav {
@@ -176,6 +466,10 @@ p {
   display: grid;
   grid-template-columns: 64px 280px minmax(0, 1fr);
   min-height: calc(100vh - 64px);
+}
+
+.shell:has(.home-launcher) {
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 
 .shell:has(.left-panel.is-collapsed) {

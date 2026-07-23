@@ -14,6 +14,7 @@ import {
 import { findSceneNode, buildSceneNodes } from './data/sceneLayout'
 import { MiniMap } from './components/MiniMap'
 import { ModulePages, resolveActivePage } from './components/ModulePages'
+import { HomeLauncher } from './components/HomeLauncher'
 import { InspectionActivityPicker } from './components/InspectionActivityPicker'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
@@ -64,6 +65,7 @@ const EMPTY_FILTERS: Filters = {
 export default function App() {
   const [module, setModule] = useState<PlatformModule>('overview')
   const [sidebar, setSidebar] = useState<SidebarId>('home')
+  const [showHome, setShowHome] = useState(true)
   const [structures, setStructures] = useState<BridgeAsset[]>(() => loadStructureDatabase())
   const [selectedId, setSelectedId] = useState(() => loadStructureDatabase()[0]?.id ?? '10001')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -155,23 +157,38 @@ export default function App() {
   ])
 
   const activePage = resolveActivePage(module, sidebar)
-  const showOverview = activePage === 'overview' || activePage === 'home'
+  const showOverview = !showHome && activePage === 'overview'
 
-  function goOverview() {
+  function goHome() {
+    setShowHome(true)
+    setSidebar('home')
+    setModule('overview')
+    setEditingId(null)
+    setViewerFullscreen(false)
+  }
+
+  function goOverview(structureId?: string) {
+    if (structureId) setSelectedId(structureId)
+    setShowHome(false)
     setModule('overview')
     setSidebar('home')
     setEditingId(null)
   }
 
   function goModule(id: PlatformModule) {
+    setShowHome(false)
     setModule(id)
     setSidebar('home')
     if (id !== 'create-model') setEditingId(null)
   }
 
   function goSidebar(id: SidebarId) {
+    if (id === 'home') {
+      goHome()
+      return
+    }
+    setShowHome(false)
     setSidebar(id)
-    if (id === 'home') setModule('overview')
     if (id === 'assets') setModule('assets')
     setEditingId(null)
   }
@@ -183,13 +200,13 @@ export default function App() {
     setStructures(enriched)
     setSelectedId(withHazard.id)
     setEditingId(null)
-    setModule('overview')
-    setSidebar('home')
+    goOverview(withHazard.id)
   }
 
   function handleEdit(id: string) {
     setSelectedId(id)
     setEditingId(id)
+    setShowHome(false)
     setModule('create-model')
     setSidebar('home')
   }
@@ -232,6 +249,7 @@ export default function App() {
 
   function handleOpenCreateModel() {
     setEditingId(null)
+    setShowHome(false)
     setModule('create-model')
     setSidebar('home')
   }
@@ -248,8 +266,7 @@ export default function App() {
     const next = saveUserStructure(created)
     setStructures(next)
     setSelectedId(created.id)
-    setModule('overview')
-    setSidebar('home')
+    goOverview(created.id)
   }
 
   function handleExport() {
@@ -322,15 +339,15 @@ export default function App() {
   return (
     <div className="twin-app">
       <header className="topbar">
-        <div className="brand">
+        <button type="button" className="brand" onClick={goHome} title="Home menu">
           <div className="brand-mark" aria-hidden="true">
             ⌁
           </div>
           <div>
-            <p className="brand-title">Bridge Asset Digital Twin</p>
+            <p className="brand-title">Bridge Network</p>
             <p className="brand-sub">Live BIS · inventory · inspection · risk</p>
           </div>
-        </div>
+        </button>
 
         <nav className="top-nav" aria-label="Primary">
           {TOP_NAV.map((item) => (
@@ -338,13 +355,18 @@ export default function App() {
               key={item.id}
               type="button"
               className={
-                (sidebar === 'home' && module === item.id) ||
-                (sidebar === 'assets' && item.id === 'assets')
+                !showHome &&
+                ((sidebar === 'home' && module === item.id) ||
+                  (sidebar === 'assets' && item.id === 'assets'))
                   ? 'active'
                   : ''
               }
               onClick={() =>
-                item.id === 'create-model' ? handleOpenCreateModel() : goModule(item.id)
+                item.id === 'create-model'
+                  ? handleOpenCreateModel()
+                  : item.id === 'overview'
+                    ? goOverview()
+                    : goModule(item.id)
               }
             >
               {item.label}
@@ -372,7 +394,15 @@ export default function App() {
             <button
               key={item.id}
               type="button"
-              className={sidebar === item.id ? 'active' : ''}
+              className={
+                item.id === 'home'
+                  ? showHome
+                    ? 'active'
+                    : ''
+                  : !showHome && sidebar === item.id
+                    ? 'active'
+                    : ''
+              }
               title={item.label}
               onClick={() => goSidebar(item.id)}
             >
@@ -381,7 +411,17 @@ export default function App() {
           ))}
         </aside>
 
-        {!showOverview ? (
+        {showHome ? (
+          <HomeLauncher
+            structures={structures}
+            selectedId={bridge.id}
+            onSelectStructure={setSelectedId}
+            onOpenStructureOverview={(id) => goOverview(id)}
+            onOpenModule={goModule}
+            onOpenMaps={() => goSidebar('maps')}
+            onOpenCreateModel={handleOpenCreateModel}
+          />
+        ) : !showOverview ? (
           <ModulePages
             module={module}
             sidebar={sidebar}
