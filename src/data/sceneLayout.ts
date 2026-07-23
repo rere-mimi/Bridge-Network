@@ -1,4 +1,5 @@
 import type { BridgeAsset, BridgeElement, ConditionBand } from '../types'
+import { isStructural3dSchedule } from './modelCatalogue'
 
 const BAND_COLOR: Record<ConditionBand, string> = {
   excellent: '#22c55e',
@@ -116,28 +117,6 @@ function ibeamParts(
   ]
 }
 
-function barrierParts(
-  length: number,
-  roadHalf: number,
-  deckTop: number,
-  color: string,
-): ScenePart[] {
-  const h = 0.34
-  const t = 0.07
-  return [
-    {
-      position: [0, deckTop + h / 2, roadHalf - t / 2],
-      size: [length, h, t],
-      color,
-    },
-    {
-      position: [0, deckTop + h / 2, -(roadHalf - t / 2)],
-      size: [length, h, t],
-      color,
-    },
-  ]
-}
-
 /**
  * Build selectable 3D nodes with realistic composite geometry.
  * Axes: X = roadway, Z = stream.
@@ -145,14 +124,14 @@ function barrierParts(
  * Bridges: deck ∥ roadway (along X), spanning ⊥ stream.
  */
 export function buildSceneNodes(bridge: BridgeAsset): SceneNode[] {
-  if (isCulvert(bridge)) return buildCulvertNodes(bridge)
-  return buildBridgeNodes(bridge)
+  const nodes = isCulvert(bridge) ? buildCulvertNodes(bridge) : buildBridgeNodes(bridge)
+  // Model basis: structural elements only (no grass, waterway, fill, wearing surface, barriers…)
+  return nodes.filter((n) => isStructural3dSchedule(n.element.scheduleNo))
 }
 
 function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   const deckWidthM = bridge.deckWidthM ?? 8
   const roadW = roadWidthScene(deckWidthM)
-  const roadHalf = roadW / 2
   const lengthM = Math.max(bridge.lengthM, 6)
   // Barrel / stream along Z (perpendicular to roadway on X)
   const barrelLen = Math.max(roadW + 1.6, Math.min(5.4, 2.4 + lengthM / 18))
@@ -160,11 +139,8 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   // Clear opening width across the channel (along X, under the road)
   const openingW = Math.min(2.6, Math.max(1.2, roadW * 0.7))
   const wall = 0.16
-  const cover = 0.55 // fill over barrel
   const invertY = 0.08
   const roofY = invertY + openingH + wall
-  const roadY = roofY + cover + 0.06
-  const showBarriers = hasElement(bridge, 2)
   const showGussets =
     hasElement(bridge, 605) || hasElement(bridge, 606) || hasElement(bridge, 609)
   const nodes: SceneNode[] = []
@@ -293,108 +269,26 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
     })
   }
 
-  // Embankment fill under the roadway; slopes face the stream at ±Z
-  const fillParts: ScenePart[] = [
-    {
-      position: [0, 0, 0],
-      size: [SCENE_LENGTH + 1.5, cover, Math.max(roadW + 0.9, barrelLen * 0.55)],
-      color: '#5b6b4f',
-    },
-    {
-      position: [0, -cover * 0.12, barrelLen / 2 + 0.35],
-      size: [openingW + 2.4, cover * 0.75, 0.95],
-      color: '#4b5a42',
-      rotation: [0.4, 0, 0],
-    },
-    {
-      position: [0, -cover * 0.12, -(barrelLen / 2 + 0.35)],
-      size: [openingW + 2.4, cover * 0.75, 0.95],
-      color: '#4b5a42',
-      rotation: [-0.4, 0, 0],
-    },
-  ]
-
-  const fillEl = byNo(501)
-  if (fillEl) {
+  // Structural footings / piles only (no embankment fill, roadway, barriers, waterway markers)
+  for (const no of [607, 610]) {
+    const el = byNo(no)
+    if (!el || nodes.some((n) => n.element.id === el.id)) continue
+    const color = BAND_COLOR[el.band]
     nodes.push({
-      element: fillEl,
-      position: [0, roofY + cover / 2, 0],
-      sizeM: { length: lengthM + 8, width: deckWidthM + 4, height: cover },
-      color: '#5b6b4f',
-      faces: ['top', 'front', 'side'],
-      parts: fillParts,
-      kind: 'solid',
-    })
-  } else if (barrelEl) {
-    const barrelNode = nodes.find((n) => n.element.id === barrelEl.id)
-    barrelNode?.parts.push(
-      ...fillParts.map((p) => ({
-        ...p,
-        position: [p.position[0], roofY + cover / 2 + p.position[1], p.position[2]] as [
-          number,
-          number,
-          number,
-        ],
-      })),
-    )
-  }
-
-  // Roadway along X (traffic), crossing over the culvert
-  const roadEl = byNo(1)
-  if (roadEl) {
-    const color = BAND_COLOR[roadEl.band]
-    nodes.push({
-      element: roadEl,
-      position: [0, roadY, 0],
-      sizeM: { length: lengthM + 10, width: deckWidthM, height: 0.12 },
+      element: el,
+      position: [0, invertY - 0.12, 0],
+      sizeM: { length: 1.2, width: openingW + 0.6, height: 0.35 },
       color,
       faces: ['top', 'front', 'end'],
       parts: [
         {
           position: [0, 0, 0],
-          size: [SCENE_LENGTH + 2.5, 0.08, roadW],
-          color: '#3f4651',
-        },
-        {
-          position: [0, 0.045, 0],
-          size: [SCENE_LENGTH + 2.5, 0.01, 0.05],
-          color: '#f8fafc',
+          size: [openingW + wall * 2, 0.14, barrelLen * 0.9],
+          color,
         },
       ],
       kind: 'solid',
     })
-  }
-
-  const barrier = byNo(2)
-  if (barrier && showBarriers) {
-    nodes.push({
-      element: barrier,
-      position: [0, roadY, 0],
-      sizeM: { length: lengthM + 10, width: 0.3, height: 1.0 },
-      color: '#d1d5db',
-      faces: ['front', 'side', 'top'],
-      parts: barrierParts(SCENE_LENGTH + 2.2, roadHalf, 0.04, '#d1d5db'),
-      kind: 'solid',
-    })
-  }
-
-  for (const el of bridge.elements) {
-    if (nodes.some((n) => n.element.id === el.id)) continue
-    if ([500, 502, 505, 607, 610].includes(el.scheduleNo)) {
-      nodes.push({
-        element: el,
-        position: [
-          ((el.scheduleNo % 5) - 2) * 0.45,
-          roadY + 0.35,
-          ((el.scheduleNo % 3) - 1) * 0.4,
-        ],
-        sizeM: { length: 0.5, width: 0.5, height: 0.5 },
-        color: BAND_COLOR[el.band],
-        faces: ['top', 'front', 'side'],
-        parts: [{ position: [0, 0, 0], size: [0.18, 0.18, 0.18], color: BAND_COLOR[el.band] }],
-        kind: 'marker',
-      })
-    }
   }
 
   return nodes
@@ -407,10 +301,10 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
   const deckWidthM = bridge.deckWidthM ?? 12
   const roadW = roadWidthScene(deckWidthM)
   const roadHalf = roadW / 2
-  const showBarriers = hasElement(bridge, 2)
   const nodes: SceneNode[] = []
 
   for (const el of bridge.elements) {
+    if (!isStructural3dSchedule(el.scheduleNo)) continue
     const idx = parseIndex(el.groupId)
     const color = BAND_COLOR[el.band]
     let node: SceneNode | null = null
@@ -418,71 +312,6 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
     if (el.group === 'span') {
       const x = spanCentreX(idx, spans)
       switch (el.scheduleNo) {
-        case 1:
-          node = {
-            element: el,
-            position: [x, DECK_Y + 0.14, 0],
-            sizeM: { length: spanLenM, width: deckWidthM, height: 0.08 },
-            color,
-            faces: ['top', 'front', 'end'],
-            parts: [
-              { position: [0, 0, 0], size: [spanLenScene * 0.98, 0.06, roadW], color: '#3f4651' },
-              { position: [0, 0.035, 0], size: [spanLenScene * 0.98, 0.01, 0.05], color: '#f8fafc' },
-            ],
-            kind: 'solid',
-          }
-          break
-        case 2:
-          if (!showBarriers) break
-          node = {
-            element: el,
-            position: [x, DECK_Y + 0.14, 0],
-            sizeM: { length: spanLenM, width: 0.3, height: 1.1 },
-            color: '#d1d5db',
-            faces: ['front', 'side', 'top'],
-            parts: barrierParts(spanLenScene * 0.96, roadHalf, 0.05, '#d1d5db'),
-            kind: 'solid',
-          }
-          break
-        case 3:
-          node = {
-            element: el,
-            position: [x, DECK_Y + 0.1, 0],
-            sizeM: { length: spanLenM, width: 0.45, height: 0.25 },
-            color: '#9ca3af',
-            faces: ['top', 'front', 'end'],
-            parts: [
-              {
-                position: [0, 0, roadHalf - 0.12],
-                size: [spanLenScene * 0.96, 0.1, 0.14],
-                color: '#9ca3af',
-              },
-              {
-                position: [0, 0, -(roadHalf - 0.12)],
-                size: [spanLenScene * 0.96, 0.1, 0.14],
-                color: '#9ca3af',
-              },
-            ],
-            kind: 'solid',
-          }
-          break
-        case 4:
-          node = {
-            element: el,
-            position: [x, DECK_Y + 0.12, -roadHalf + 0.28],
-            sizeM: { length: spanLenM, width: 1.8, height: 0.12 },
-            color,
-            faces: ['top', 'front', 'end'],
-            parts: [
-              {
-                position: [0, 0, 0],
-                size: [spanLenScene * 0.95, 0.05, 0.45],
-                color: '#94a3b8',
-              },
-            ],
-            kind: 'solid',
-          }
-          break
         case 100:
           node = {
             element: el,
@@ -790,65 +619,26 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
       }
     }
 
+    // Approaches: structural wingwalls / retaining only (no embankment, road, barriers)
     if (el.group === 'approach') {
       const side = idx <= 1 ? -1 : 1
-      const x = side * (SCENE_LENGTH / 2 + 1.7)
-      switch (el.scheduleNo) {
-        case 1:
-          node = {
-            element: el,
-            position: [x, 0.55, 0],
-            sizeM: { length: 12, width: deckWidthM, height: 0.15 },
-            color,
-            faces: ['top', 'front', 'end'],
-            parts: [
-              {
-                position: [0, 0.35, 0],
-                size: [2.8, 0.08, roadW],
-                color: '#3f4651',
-              },
-              {
-                position: [0, 0, 0],
-                size: [2.8, 0.7, roadW + 1.2],
-                color: '#5b6b4f',
-              },
-            ],
-            kind: 'solid',
-          }
-          break
-        case 2:
-          if (!showBarriers) break
-          node = {
-            element: el,
-            position: [x, 0.95, 0],
-            sizeM: { length: 10, width: 0.3, height: 1.0 },
-            color: '#d1d5db',
-            faces: ['front', 'side', 'top'],
-            parts: barrierParts(2.6, roadHalf, 0, '#d1d5db'),
-            kind: 'solid',
-          }
-          break
-        case 501:
-        case 502:
-          node = {
-            element: el,
-            position: [x, 0.15, side * (roadHalf + 0.8)],
-            sizeM: { length: 8, width: 4, height: 2 },
-            color: '#3f4f46',
-            faces: ['top', 'front', 'side'],
-            parts: [
-              {
-                position: [0, 0, 0],
-                size: [2.4, 0.55, 1.1],
-                color: el.scheduleNo === 502 ? '#64748b' : '#3f4f46',
-                rotation: [side * 0.25, 0, 0],
-              },
-            ],
-            kind: 'solid',
-          }
-          break
-        default:
-          break
+      const x = side * (SCENE_LENGTH / 2 + 1.2)
+      if (el.scheduleNo === 401 || el.scheduleNo === 700) {
+        node = {
+          element: el,
+          position: [x, 0.55, side * (roadHalf + 0.35)],
+          sizeM: { length: 4, width: 0.4, height: 2.2 },
+          color,
+          faces: ['front', 'side', 'top'],
+          parts: [
+            {
+              position: [0, 0, 0],
+              size: [1.6, 1.1, 0.18],
+              color,
+            },
+          ],
+          kind: 'solid',
+        }
       }
     }
 

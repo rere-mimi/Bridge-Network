@@ -3,6 +3,7 @@ import type { BridgeAsset, PlatformModule, SidebarId } from '../types'
 import { conditionLabel } from '../data/bridges'
 import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
+import { ModelCataloguePanel } from './ModelCataloguePanel'
 import { NzNetworkMap } from './NzNetworkMap'
 import { ResizablePanel } from './ResizablePanel'
 
@@ -583,7 +584,7 @@ export function ModulePages({
       )}
 
       {page === 'settings' && (
-        <PageShell title="Settings" subtitle="Workspace preferences.">
+        <PageShell title="Settings" subtitle="Workspace preferences and model catalogue.">
           <ul className="settings-list">
             <li>
               <strong>Units</strong>
@@ -591,7 +592,7 @@ export function ModulePages({
             </li>
             <li>
               <strong>Default viewer</strong>
-              <span>3D Model</span>
+              <span>3D Model (structural only)</span>
             </li>
             <li>
               <strong>Structure database</strong>
@@ -612,6 +613,7 @@ export function ModulePages({
               <span>Saved in this browser</span>
             </li>
           </ul>
+          <ModelCataloguePanel />
           <div className="page-toolbar">
             <button type="button" className="page-btn primary" onClick={onOpenCreateModel}>
               Create model

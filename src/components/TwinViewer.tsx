@@ -39,9 +39,6 @@ import type {
 
 type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
 
-const SCENE_STREAM_LEN = 12
-const SCENE_RIVER_WIDTH = 8.2
-
 function PartGeometry({ part }: { part: ScenePart }) {
   if (part.shape === 'cylinder') {
     const radius = Math.max(part.size[0], part.size[2]) * 0.5
@@ -194,47 +191,11 @@ function BridgeModel({
   const nodes = useMemo(() => buildSceneNodes(bridge), [bridge])
   const selected = findSceneNode(nodes, selectedId)
   const hideOthers = isolate && !!selected
-  const culvert =
-    bridge.kind === 'culvert' ||
-    bridge.family?.includes('culvert') ||
-    bridge.elements.some((e) => e.scheduleNo >= 600 && e.scheduleNo < 650)
 
   return (
     <group>
-      {!hideOthers && (
-        <>
-          {/* Ground / channel bed */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.42, 0]} receiveShadow>
-            <planeGeometry args={[22, 16]} />
-            <meshStandardMaterial color={culvert ? '#3d4f3a' : '#1d4f63'} roughness={0.85} />
-          </mesh>
-          {!culvert && (
-            <>
-              {/* River flows along Z; bridge/roadway run along X (perpendicular to stream) */}
-              <mesh position={[0, -0.28, 0]} receiveShadow>
-                <boxGeometry args={[SCENE_RIVER_WIDTH, 0.2, SCENE_STREAM_LEN]} />
-                <meshStandardMaterial color="#0f3a4d" roughness={0.35} metalness={0.15} />
-              </mesh>
-              {/* Soft banks parallel to flow */}
-              <mesh position={[SCENE_RIVER_WIDTH / 2 + 0.55, -0.18, 0]} receiveShadow>
-                <boxGeometry args={[1.1, 0.35, SCENE_STREAM_LEN]} />
-                <meshStandardMaterial color="#2f4a3a" roughness={0.9} />
-              </mesh>
-              <mesh position={[-(SCENE_RIVER_WIDTH / 2 + 0.55), -0.18, 0]} receiveShadow>
-                <boxGeometry args={[1.1, 0.35, SCENE_STREAM_LEN]} />
-                <meshStandardMaterial color="#2f4a3a" roughness={0.9} />
-              </mesh>
-            </>
-          )}
-          {culvert && (
-            // Stream channel through culvert barrel (Z), under roadway (X)
-            <mesh position={[0, -0.18, 0]} receiveShadow>
-              <boxGeometry args={[2.2, 0.16, SCENE_STREAM_LEN]} />
-              <meshStandardMaterial color="#1e4658" roughness={0.4} />
-            </mesh>
-          )}
-        </>
-      )}
+      {/* Structural twin only — no ground, grass, water, or embankment */}
+      <gridHelper args={[24, 24, '#1e293b', '#0f172a']} position={[0, -0.5, 0]} />
 
       {nodes.map((node) => {
         const active = selectedId === node.element.id
