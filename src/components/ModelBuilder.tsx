@@ -5,6 +5,8 @@ import {
   elementsForFamily,
   familyLabel,
   isCulvertFamily,
+  isTunnelFamily,
+  isWallFamily,
   materialFromBridge,
   STANDARD_ELEMENTS,
   type StructureFamily,
@@ -28,15 +30,14 @@ import {
   validateArchComponents,
   type ArchSpandrelType,
 } from '../data/archBridgeComponents'
+import {
+  categoryFromFamily,
+  MODEL_CATEGORIES,
+  sketchesForCategory,
+  type ModelCategory,
+} from '../data/modelSketches'
 import { LocationPickerMap } from './LocationPickerMap'
-
-const BRIDGE_FAMILIES: StructureFamily[] = ['girder', 'box', 'arch', 'slab']
-const CULVERT_FAMILIES: StructureFamily[] = [
-  'box-culvert',
-  'pipe-culvert',
-  'pipe-arch-culvert',
-  'arch-culvert',
-]
+import type { StructureKind } from '../types'
 
 const MATERIALS = [
   'Reinforced concrete',
@@ -62,7 +63,7 @@ function elementName(no: number): string {
 }
 
 function sizeFieldsFor(scheduleNo: number): Array<keyof ElementSizeM> {
-  if ([404, 405, 407, 601, 602, 610].includes(scheduleNo)) {
+  if ([404, 405, 407, 601, 602, 610, 701].includes(scheduleNo)) {
     return scheduleNo === 405
       ? ['length', 'width', 'height']
       : ['diameter', 'height']
@@ -71,6 +72,10 @@ function sizeFieldsFor(scheduleNo: number): Array<keyof ElementSizeM> {
     return ['length', 'width', 'height', 'openingHeight']
   }
   return ['length', 'width', 'height']
+}
+
+function geometryKind(family: StructureFamily): 'bridge' | 'culvert' {
+  return isCulvertFamily(family) ? 'culvert' : 'bridge'
 }
 
 export function ModelBuilder({
@@ -83,7 +88,10 @@ export function ModelBuilder({
   const seed = initialStructure ? draftFromStructure(initialStructure) : null
 
   const [step, setStep] = useState<Step>(1)
-  const [kind, setKind] = useState<'bridge' | 'culvert'>(
+  const [category, setCategory] = useState<ModelCategory>(
+    seed ? categoryFromFamily(seed.family) : 'bridge',
+  )
+  const [kind, setKind] = useState<StructureKind>(
     seed ? kindFromFamily(seed.family) : 'bridge',
   )
   const [family, setFamily] = useState<StructureFamily>(seed?.family ?? 'girder')
@@ -140,12 +148,11 @@ export function ModelBuilder({
   const preferredMaterial = materialFromBridge(material)
 
   const dimensionNos = useMemo(
-    () => editableDimensionSchedules(kind, selectedNos),
-    [kind, selectedNos],
+    () => editableDimensionSchedules(geometryKind(family), selectedNos),
+    [family, selectedNos],
   )
 
   function rebuildSizes(next: {
-    kind: 'bridge' | 'culvert'
     family: StructureFamily
     lengthM: number
     spans: number
@@ -157,16 +164,19 @@ export function ModelBuilder({
       lengthM: next.lengthM,
       spans: next.spans,
       deckWidthM: next.deckWidthM,
-      kind: next.kind,
+      kind: geometryKind(next.family),
       family: next.family,
       girderCountPerSpan: next.girderCount,
     }).elementSizes
     setElementSizes({ ...fresh, ...next.keep })
   }
 
-  function chooseKind(next: 'bridge' | 'culvert') {
-    setKind(next)
-    const nextFamily = next === 'bridge' ? 'girder' : 'box-culvert'
+  function chooseCategory(next: ModelCategory) {
+    setCategory(next)
+    const meta = MODEL_CATEGORIES.find((c) => c.id === next)!
+    setKind(meta.kind)
+    const first = sketchesForCategory(next)[0]
+    const nextFamily = first?.family ?? 'girder'
     setFamily(nextFamily)
     setSelectedNos(elementsForFamily(nextFamily).map((e) => e.no))
     if (next === 'culvert') {
@@ -179,12 +189,39 @@ export function ModelBuilder({
       setColumnsPerPier(1)
       setColumnsPerAbutment(1)
       rebuildSizes({
-        kind: 'culvert',
         family: nextFamily,
         lengthM: 18,
         spans: 1,
         deckWidthM: 3.5,
         girderCount: 1,
+      })
+    } else if (next === 'walls') {
+      setSpans(1)
+      setDeckWidthM(4)
+      setLengthM(40)
+      setGirderCount(0)
+      setBeamType('slab')
+      setPierType('wall')
+      rebuildSizes({
+        family: nextFamily,
+        lengthM: 40,
+        spans: 1,
+        deckWidthM: 4,
+        girderCount: 0,
+      })
+    } else if (next === 'tunnel') {
+      setSpans(1)
+      setDeckWidthM(10)
+      setLengthM(120)
+      setGirderCount(0)
+      setBeamType('slab')
+      setPierType('wall')
+      rebuildSizes({
+        family: nextFamily,
+        lengthM: 120,
+        spans: 1,
+        deckWidthM: 10,
+        girderCount: 0,
       })
     } else {
       setSpans(2)
@@ -196,7 +233,6 @@ export function ModelBuilder({
       setColumnsPerPier(2)
       setColumnsPerAbutment(4)
       rebuildSizes({
-        kind: 'bridge',
         family: nextFamily,
         lengthM: 40,
         spans: 2,
@@ -208,9 +244,11 @@ export function ModelBuilder({
 
   function chooseFamily(next: StructureFamily) {
     setFamily(next)
+    setKind(kindFromFamily(next))
+    setCategory(categoryFromFamily(next))
     setSelectedNos(elementsForFamily(next).map((e) => e.no))
     if (next === 'box') setBeamType('box')
-    else if (next === 'slab') {
+    else if (next === 'slab' || isWallFamily(next) || isTunnelFamily(next)) {
       setBeamType('slab')
       setGirderCount(0)
     } else if (next === 'arch') {
@@ -219,13 +257,19 @@ export function ModelBuilder({
       setArchSpandrelType('closed')
       setSpandrelColumnCount(6)
     } else if (next === 'girder') setBeamType('open-ibeam')
+    else if (isCulvertFamily(next)) {
+      setBeamType('slab')
+      setGirderCount(1)
+    }
     rebuildSizes({
-      kind,
       family: next,
       lengthM,
       spans,
       deckWidthM,
-      girderCount: next === 'slab' || next === 'arch' ? 0 : girderCount || 4,
+      girderCount:
+        next === 'slab' || next === 'arch' || isWallFamily(next) || isTunnelFamily(next)
+          ? 0
+          : girderCount || 4,
     })
   }
 
@@ -366,8 +410,8 @@ export function ModelBuilder({
           <h1>{editing ? 'Edit structure model' : 'Create structure model'}</h1>
           <p>
             {editing
-              ? 'Update identity, location, member types, element dimensions, or Appendix C elements, then save back to your database.'
-              : 'Build a bridge or culvert from the standard element schedule, choose beam/pier layout and dimensions, then save it into your local database.'}
+              ? 'Update identity, location, type sketch, or element dimensions, then save back to your database.'
+              : 'Choose bridge, walls, culvert or tunnel, pick a type sketch, set high-level size, then create. Refine every element dimension after creation.'}
           </p>
         </div>
         <div className="model-builder-id">
@@ -377,7 +421,7 @@ export function ModelBuilder({
       </header>
 
       <ol className="model-steps">
-        {(['Type', 'Family', 'Identity', 'Geometry', 'Elements'] as const).map((label, i) => {
+        {(['Category', 'Sketch', 'Identity', 'Size', 'Elements'] as const).map((label, i) => {
           const n = (i + 1) as Step
           return (
             <li key={label} className={step === n ? 'active' : step > n ? 'done' : ''}>
@@ -391,44 +435,48 @@ export function ModelBuilder({
       {step === 1 && (
         <section className="model-card">
           <h2>What are you modelling?</h2>
+          <p className="model-help">
+            Choose the asset category first. Next you will pick a sketch type within that category.
+          </p>
           <div className="model-choice-grid">
-            <button
-              type="button"
-              className={kind === 'bridge' ? 'active' : ''}
-              onClick={() => chooseKind('bridge')}
-            >
-              <strong>Bridge</strong>
-              <span>Deck, beams, bearings, abutments, piers — Superstructure / Substructure</span>
-            </button>
-            <button
-              type="button"
-              className={kind === 'culvert' ? 'active' : ''}
-              onClick={() => chooseKind('culvert')}
-            >
-              <strong>Culvert</strong>
-              <span>Box, pipe, pipe-arch or arch barrel with headwalls and invert protection</span>
-            </button>
+            {MODEL_CATEGORIES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={category === item.id ? 'active' : ''}
+                onClick={() => chooseCategory(item.id)}
+              >
+                <strong>{item.title}</strong>
+                <span>{item.blurb}</span>
+              </button>
+            ))}
           </div>
         </section>
       )}
 
       {step === 2 && (
         <section className="model-card">
-          <h2>Structure family & material</h2>
+          <h2>Pick a type sketch</h2>
           <p className="model-help">
-            Families follow Appendix C categories used to seed the element inventory. Material picks
-            the Appendix F description variant (C / P / S / T / M / O).
+            Sketches show the structural form at a glance. Names are under each card — dimensions stay
+            high-level until the model is created, then every element size can be edited.
           </p>
-          <div className="model-choice-grid">
-            {(kind === 'bridge' ? BRIDGE_FAMILIES : CULVERT_FAMILIES).map((item) => (
+          <div className="model-sketch-grid">
+            {sketchesForCategory(category).map((item) => (
               <button
-                key={item}
+                key={item.id}
                 type="button"
-                className={family === item ? 'active' : ''}
-                onClick={() => chooseFamily(item)}
+                className={`model-sketch-card ${family === item.family ? 'active' : ''}`}
+                onClick={() => chooseFamily(item.family)}
               >
-                <strong>{familyLabel(item)}</strong>
-                <span>{kindFromFamily(item)}</span>
+                <svg
+                  className="model-sketch-art"
+                  viewBox="0 0 160 96"
+                  aria-hidden="true"
+                  dangerouslySetInnerHTML={{ __html: item.sketch }}
+                />
+                <strong>{item.title}</strong>
+                <span>{item.blurb}</span>
               </button>
             ))}
           </div>
@@ -522,10 +570,11 @@ export function ModelBuilder({
 
       {step === 4 && (
         <section className="model-card">
-          <h2>Geometry — overall, members & element sizes</h2>
+          <h2>{editing ? 'Geometry — overall & element sizes' : 'High-level size'}</h2>
           <p className="model-help">
-            Choose beam and pier layouts, member counts, and real-world dimensions (m). These drive
-            inventory quantities and the structural 3D twin.
+            {editing
+              ? 'Adjust overall size and every element dimension. These drive inventory quantities and the structural 3D twin.'
+              : 'Set overall length, width and spans only. After the structure is created, open Edit model to refine every element dimension.'}
           </p>
 
           <h3 className="model-subhead">Overall</h3>
@@ -541,7 +590,6 @@ export function ModelBuilder({
                   const v = Number(e.target.value) || 1
                   setLengthM(v)
                   rebuildSizes({
-                    kind,
                     family,
                     lengthM: v,
                     spans,
@@ -552,7 +600,13 @@ export function ModelBuilder({
               />
             </label>
             <label className="model-field">
-              {kind === 'culvert' ? 'Barrel width (m)' : 'Deck width (m)'}
+              {kind === 'culvert'
+                ? 'Barrel width (m)'
+                : kind === 'retaining-wall'
+                  ? 'Wall height (m)'
+                  : kind === 'tunnel'
+                    ? 'Clear width (m)'
+                    : 'Deck width (m)'}
               <input
                 type="number"
                 min={0.5}
@@ -562,7 +616,6 @@ export function ModelBuilder({
                   const v = Number(e.target.value) || 1
                   setDeckWidthM(v)
                   rebuildSizes({
-                    kind,
                     family,
                     lengthM,
                     spans,
@@ -584,7 +637,6 @@ export function ModelBuilder({
                     const v = Math.max(1, Number(e.target.value) || 1)
                     setSpans(v)
                     rebuildSizes({
-                      kind,
                       family,
                       lengthM,
                       spans: v,
@@ -597,7 +649,7 @@ export function ModelBuilder({
             )}
           </div>
 
-          {kind === 'bridge' && (
+          {editing && kind === 'bridge' && (
             <>
               {family === 'arch' ? (
                 <>
@@ -724,6 +776,8 @@ export function ModelBuilder({
             </>
           )}
 
+          {editing ? (
+            <>
           <h3 className="model-subhead">Element dimensions (m)</h3>
           <p className="model-help">
             Edit sizes for each selected structural element type. Values apply to all instances of
@@ -780,6 +834,13 @@ export function ModelBuilder({
             <p className="model-help">
               Select structural elements in the next step to edit their dimensions, or keep the
               defaults above after continuing once.
+            </p>
+          )}
+            </>
+          ) : (
+            <p className="model-help">
+              Element-by-element dimensions unlock after create — use <strong>Edit model</strong> on
+              the structure overview.
             </p>
           )}
 

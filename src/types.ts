@@ -182,7 +182,7 @@ export type MaintenanceRecommendation = {
   conditionState?: ConditionState
 }
 
-export type StructureKind = 'bridge' | 'culvert'
+export type StructureKind = 'bridge' | 'culvert' | 'retaining-wall' | 'tunnel'
 export type StructureSource = 'seed' | 'user'
 
 export type BridgeAsset = {
@@ -215,6 +215,10 @@ export type BridgeAsset = {
     | 'pipe-culvert'
     | 'pipe-arch-culvert'
     | 'arch-culvert'
+    | 'retaining-wall'
+    | 'noise-wall'
+    | 'tunnel-lined'
+    | 'tunnel-cut-cover'
   /** Seed demo data vs user-created database record */
   source?: StructureSource
   createdAt?: string

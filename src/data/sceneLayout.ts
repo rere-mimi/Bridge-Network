@@ -2,11 +2,30 @@ import type { BridgeAsset, BridgeElement, ConditionBand, ElementSizeM } from '..
 import { isStructural3dSchedule } from './modelCatalogue'
 import { sizeForSchedule } from './structureGeometry'
 
+export type SceneColorMode = 'material' | 'condition' | 'severity'
+
 const BAND_COLOR: Record<ConditionBand, string> = {
   excellent: '#22c55e',
   good: '#84cc16',
   fair: '#eab308',
   poor: '#f97316',
+  critical: '#ef4444',
+}
+
+/** Twin mesh colour by construction material (default view). */
+export const MATERIAL_MESH_COLOR: Record<string, string> = {
+  C: '#94a3b8',
+  P: '#a8b5c7',
+  S: '#64748b',
+  T: '#b45309',
+  M: '#78716c',
+  O: '#6b7280',
+}
+
+const SEVERITY_COLOR: Record<string, string> = {
+  low: '#22c55e',
+  medium: '#eab308',
+  high: '#f97316',
   critical: '#ef4444',
 }
 
@@ -261,13 +280,81 @@ function spandrelWallParts(
  * Culverts: barrel ⊥ roadway (along Z), stream through opening.
  * Bridges: deck ∥ roadway (along X), spanning ⊥ stream.
  */
-export function buildSceneNodes(bridge: BridgeAsset): SceneNode[] {
-  const nodes = isCulvert(bridge) ? buildCulvertNodes(bridge) : buildBridgeNodes(bridge)
+export function buildSceneNodes(
+  bridge: BridgeAsset,
+  colorMode: SceneColorMode = 'material',
+): SceneNode[] {
+  const nodes = isCulvert(bridge)
+    ? buildCulvertNodes(bridge, colorMode)
+    : isWall(bridge)
+      ? buildWallNodes(bridge, colorMode)
+      : isTunnel(bridge)
+        ? buildTunnelNodes(bridge, colorMode)
+        : buildBridgeNodes(bridge, colorMode)
   // Model basis: structural elements only (no grass, waterway, fill, wearing surface, barriers…)
   return nodes.filter((n) => isStructural3dSchedule(n.element.scheduleNo))
 }
 
-function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
+function isWall(bridge: BridgeAsset) {
+  return (
+    bridge.kind === 'retaining-wall' ||
+    bridge.family === 'retaining-wall' ||
+    bridge.family === 'noise-wall' ||
+    bridge.elements.some((e) => e.scheduleNo >= 700 && e.scheduleNo < 800)
+  )
+}
+
+function isTunnel(bridge: BridgeAsset) {
+  return bridge.kind === 'tunnel' || bridge.family === 'tunnel-lined' || bridge.family === 'tunnel-cut-cover'
+}
+
+function elementColor(
+  el: BridgeElement,
+  bridge: BridgeAsset,
+  colorMode: SceneColorMode,
+): string {
+  if (colorMode === 'condition') return BAND_COLOR[el.band]
+  if (colorMode === 'severity') {
+    const related = bridge.defects.filter(
+      (d) =>
+        d.elementName === el.id ||
+        d.elementName === el.name ||
+        d.elementCode === el.code ||
+        d.elementName.includes(el.groupId),
+    )
+    const drawn = (bridge.drawnDefects ?? []).filter((d) => d.elementId === el.id)
+    const rank = (s: string) =>
+      s === 'critical' ? 4 : s === 'high' ? 3 : s === 'medium' ? 2 : 1
+    let worst = 0
+    let color = MATERIAL_MESH_COLOR[el.material ?? 'C'] ?? MATERIAL_MESH_COLOR.C
+    for (const d of related) {
+      const r = rank(d.severity)
+      if (r > worst) {
+        worst = r
+        color = SEVERITY_COLOR[d.severity] ?? color
+      }
+    }
+    for (const d of drawn) {
+      const sev =
+        d.conditionState === 4
+          ? 'critical'
+          : d.conditionState === 3
+            ? 'high'
+            : d.conditionState === 2
+              ? 'medium'
+              : 'low'
+      const r = rank(sev)
+      if (r > worst) {
+        worst = r
+        color = SEVERITY_COLOR[sev]
+      }
+    }
+    return color
+  }
+  return MATERIAL_MESH_COLOR[el.material ?? 'C'] ?? MATERIAL_MESH_COLOR.C
+}
+
+function buildCulvertNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
   const deckWidthM = bridge.deckWidthM ?? 8
   const roadW = roadWidthScene(deckWidthM)
   const lengthM = Math.max(bridge.lengthM, 6)
@@ -299,7 +386,7 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   const barrelEl =
     byNo(600) ?? byNo(601) ?? byNo(602) ?? byNo(603) ?? bridge.elements.find((e) => e.group === 'span')
   if (barrelEl) {
-    const color = BAND_COLOR[barrelEl.band]
+    const color = elementColor(barrelEl, bridge, colorMode)
     const isPipe = barrelEl.scheduleNo === 601 || barrelEl.scheduleNo === 602
     const parts: ScenePart[] = []
 
@@ -360,13 +447,13 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
       element: invert,
       position: [0, invertY, 0],
       sizeM: { length: lengthM, width: deckWidthM * 0.9, height: 0.2 },
-      color: BAND_COLOR[invert.band],
+      color: elementColor(invert, bridge, colorMode),
       faces: ['top', 'front', 'end'],
       parts: [
         {
           position: [0, 0, 0],
           size: [openingW + wall, 0.08, barrelLen * 1.05],
-          color: '#64748b',
+          color: elementColor(invert, bridge, colorMode),
         },
       ],
       kind: 'solid',
@@ -377,7 +464,7 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   for (const no of [605, 606, 609]) {
     const el = byNo(no)
     if (!el || !showGussets) continue
-    const color = BAND_COLOR[el.band]
+    const color = elementColor(el, bridge, colorMode)
     const flare = no === 605 ? 0.85 : 0.55
     nodes.push({
       element: el,
@@ -423,7 +510,7 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   for (const no of [607, 610]) {
     const el = byNo(no)
     if (!el || nodes.some((n) => n.element.id === el.id)) continue
-    const color = BAND_COLOR[el.band]
+    const color = elementColor(el, bridge, colorMode)
     nodes.push({
       element: el,
       position: [0, invertY - 0.12, 0],
@@ -444,7 +531,165 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   return nodes
 }
 
-function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
+function buildWallNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
+  const lengthM = Math.max(bridge.lengthM, 8)
+  const heightM = bridge.deckWidthM ?? 4
+  const wallLen = Math.min(10, Math.max(4, lengthM / 8))
+  const wallH = Math.max(1.2, mToScene(bridge, heightM, 'y'))
+  const nodes: SceneNode[] = []
+
+  for (const el of bridge.elements) {
+    if (!isStructural3dSchedule(el.scheduleNo)) continue
+    const color = elementColor(el, bridge, colorMode)
+    if (el.scheduleNo === 700) {
+      nodes.push({
+        element: el,
+        position: [0, wallH * 0.45, 0],
+        sizeM: { length: lengthM, width: 0.4, height: heightM },
+        color,
+        faces: ['front', 'side', 'top'],
+        parts: [
+          {
+            position: [0, 0, 0],
+            size: [wallLen, wallH, 0.18],
+            color,
+          },
+        ],
+        kind: 'solid',
+      })
+    } else if (el.scheduleNo === 701) {
+      const idx = girderIndex(el)
+      const count = Math.max(
+        1,
+        bridge.elements.filter((e) => e.scheduleNo === 701).length,
+      )
+      const x = -wallLen * 0.4 + ((idx - 1) / Math.max(count - 1, 1)) * wallLen * 0.8
+      nodes.push({
+        element: el,
+        position: [x, wallH * 0.35, 0.05],
+        sizeM: { length: 0.5, width: 0.5, height: heightM },
+        color,
+        faces: ['front', 'side', 'end'],
+        parts: [
+          {
+            position: [0, 0, 0],
+            size: [0.22, wallH * 0.95, 0.22],
+            shape: 'cylinder',
+            color,
+          },
+        ],
+        kind: 'solid',
+      })
+    } else if (el.scheduleNo === 705) {
+      nodes.push({
+        element: el,
+        position: [0, 0.05, 0],
+        sizeM: { length: lengthM * 0.3, width: 1.2, height: 0.6 },
+        color,
+        faces: ['top', 'front', 'end'],
+        parts: [
+          {
+            position: [0, 0, 0],
+            size: [wallLen * 0.9, 0.2, 0.7],
+            color,
+          },
+        ],
+        kind: 'solid',
+      })
+    }
+  }
+  return nodes
+}
+
+function buildTunnelNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
+  const barrelLen = Math.min(8, Math.max(3.5, bridge.lengthM / 12))
+  const openingH = 1.6
+  const openingW = Math.min(2.8, Math.max(1.6, (bridge.deckWidthM ?? 8) / 5))
+  const nodes: SceneNode[] = []
+  const cutCover = bridge.family === 'tunnel-cut-cover'
+
+  for (const el of bridge.elements) {
+    if (!isStructural3dSchedule(el.scheduleNo)) continue
+    const color = elementColor(el, bridge, colorMode)
+    if (el.scheduleNo === 403 || el.scheduleNo === 400) {
+      nodes.push({
+        element: el,
+        position: [0, openingH * 0.55, 0],
+        sizeM: { length: bridge.lengthM, width: openingW + 1, height: openingH + 1 },
+        color,
+        faces: ['front', 'side', 'top'],
+        parts: cutCover
+          ? [
+              {
+                position: [0, -openingH * 0.35, 0],
+                size: [openingW + 0.5, 0.2, barrelLen],
+                color,
+              },
+              {
+                position: [openingW * 0.55, 0, 0],
+                size: [0.22, openingH, barrelLen],
+                color,
+              },
+              {
+                position: [-openingW * 0.55, 0, 0],
+                size: [0.22, openingH, barrelLen],
+                color,
+              },
+              {
+                position: [0, openingH * 0.45, 0],
+                size: [openingW + 0.5, 0.22, barrelLen],
+                color,
+              },
+            ]
+          : [
+              {
+                position: [0, 0, 0],
+                size: [openingW + 0.35, openingH + 0.35, barrelLen],
+                shape: 'cylinder',
+                color,
+                rotation: [Math.PI / 2, 0, 0],
+              },
+            ],
+        kind: 'solid',
+      })
+    } else if (el.scheduleNo === 200 && cutCover) {
+      nodes.push({
+        element: el,
+        position: [0, openingH + 0.25, 0],
+        sizeM: { length: bridge.lengthM, width: bridge.deckWidthM ?? 10, height: 0.3 },
+        color,
+        faces: ['top', 'front', 'end'],
+        parts: [
+          {
+            position: [0, 0, 0],
+            size: [openingW + 1.2, 0.16, barrelLen * 1.05],
+            color,
+          },
+        ],
+        kind: 'solid',
+      })
+    } else if (el.scheduleNo === 406 || el.scheduleNo === 407) {
+      nodes.push({
+        element: el,
+        position: [0, -0.15, 0],
+        sizeM: { length: 2, width: openingW + 1, height: 0.8 },
+        color,
+        faces: ['top', 'front', 'end'],
+        parts: [
+          {
+            position: [0, 0, 0],
+            size: [openingW + 0.6, 0.18, barrelLen * 0.9],
+            color,
+          },
+        ],
+        kind: 'solid',
+      })
+    }
+  }
+  return nodes
+}
+
+function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
   const spans = Math.max(bridge.spans, 1)
   const spanLenScene = SCENE_LENGTH / spans
   const spanLenM = bridge.lengthM / spans
@@ -456,7 +701,7 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
   for (const el of bridge.elements) {
     if (!isStructural3dSchedule(el.scheduleNo)) continue
     const idx = parseIndex(el.groupId)
-    const color = BAND_COLOR[el.band]
+    const color = elementColor(el, bridge, colorMode)
     let node: SceneNode | null = null
 
     if (el.group === 'span') {

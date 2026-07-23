@@ -5,6 +5,8 @@ import {
   formatElementId,
   groupLabel,
   isCulvertFamily,
+  isTunnelFamily,
+  isWallFamily,
   majorGroupFor,
   materialFromBridge,
   subgroupFor,
@@ -137,6 +139,8 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
 
   const spanLength = lengthM / Math.max(spans, 1)
   const culvert = isCulvertFamily(family)
+  const wall = isWallFamily(family)
+  const tunnel = isTunnelFamily(family)
   const catalogue = elementsForFamily(family).filter((el) =>
     includeElementNos ? includeElementNos.includes(el.no) : true,
   )
@@ -335,13 +339,18 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
   pushGroup('approach', 1)
   pushGroup('approach', 2)
 
+  if (wall) {
+    // Retaining / noise walls live on approach groups only
+    return elements
+  }
+
   if (!culvert) {
     pushGroup('abutment', 1)
   }
 
   for (let s = 1; s <= spans; s++) {
     pushGroup('span', s)
-    if (!culvert && s < spans) pushGroup('pier', s)
+    if (!culvert && !tunnel && s < spans) pushGroup('pier', s)
   }
 
   if (!culvert) {

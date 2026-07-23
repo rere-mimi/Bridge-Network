@@ -212,7 +212,7 @@ export function editableDimensionSchedules(
 ): number[] {
   const bridgeNos = [
     200, 201, 202, 203, 204, 205, 206, 207, 213, 214, 302, 400, 401, 402, 403, 404, 405, 406,
-    407,
+    407, 700, 701, 705,
   ]
   const culvertNos = [600, 601, 602, 603, 604, 605, 606, 607, 609, 610]
   const allowed = new Set(kind === 'culvert' ? culvertNos : bridgeNos)

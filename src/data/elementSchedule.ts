@@ -16,6 +16,10 @@ export type StructureFamily =
   | 'pipe-culvert'
   | 'pipe-arch-culvert'
   | 'arch-culvert'
+  | 'retaining-wall'
+  | 'noise-wall'
+  | 'tunnel-lined'
+  | 'tunnel-cut-cover'
 
 /** High-level asset family used for inventory grouping. */
 export type ElementMajorGroup =
@@ -577,6 +581,21 @@ export function elementsForFamily(family: StructureFamily): StandardElement[] {
     return STANDARD_ELEMENTS.filter((e) => include.has(e.no))
   }
 
+  if (family === 'retaining-wall' || family === 'noise-wall') {
+    return STANDARD_ELEMENTS.filter((e) =>
+      [700, 701, 702, 704, 705, 500, 501, 505].includes(e.no),
+    )
+  }
+
+  if (family === 'tunnel-lined' || family === 'tunnel-cut-cover') {
+    const include = new Set<number>([400, 403, 406, 407, 500, 501, 505])
+    if (family === 'tunnel-cut-cover') {
+      include.add(200)
+      include.add(404)
+    }
+    return STANDARD_ELEMENTS.filter((e) => include.has(e.no))
+  }
+
   const include = new Set<number>([
     // Carriageway
     1, 2, 3, 4,
@@ -620,6 +639,14 @@ export function isCulvertFamily(family: StructureFamily): boolean {
   )
 }
 
+export function isWallFamily(family: StructureFamily): boolean {
+  return family === 'retaining-wall' || family === 'noise-wall'
+}
+
+export function isTunnelFamily(family: StructureFamily): boolean {
+  return family === 'tunnel-lined' || family === 'tunnel-cut-cover'
+}
+
 export function familyLabel(family: StructureFamily): string {
   switch (family) {
     case 'girder':
@@ -638,6 +665,14 @@ export function familyLabel(family: StructureFamily): string {
       return 'Pipe-arch culvert'
     case 'arch-culvert':
       return 'Arch culvert'
+    case 'retaining-wall':
+      return 'Retaining wall'
+    case 'noise-wall':
+      return 'Noise wall'
+    case 'tunnel-lined':
+      return 'Lined tunnel'
+    case 'tunnel-cut-cover':
+      return 'Cut-and-cover tunnel'
   }
 }
 

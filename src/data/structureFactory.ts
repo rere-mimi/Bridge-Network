@@ -4,9 +4,12 @@ import {
   elementsForFamily,
   familyLabel,
   isCulvertFamily,
+  isTunnelFamily,
+  isWallFamily,
   type StructureFamily,
 } from './elementSchedule'
 import { defaultGeometry } from './structureGeometry'
+import { categoryFromFamily, kindFromCategory } from './modelSketches'
 
 function bandFromScore(score: number): ConditionBand {
   if (score >= 90) return 'excellent'
@@ -75,7 +78,10 @@ export type StructureDraft = {
 }
 
 export function kindFromFamily(family: StructureFamily): StructureKind {
-  return isCulvertFamily(family) ? 'culvert' : 'bridge'
+  if (isCulvertFamily(family)) return 'culvert'
+  if (isWallFamily(family)) return 'retaining-wall'
+  if (isTunnelFamily(family)) return 'tunnel'
+  return kindFromCategory(categoryFromFamily(family))
 }
 
 export function buildStructureFromDraft(
@@ -176,8 +182,13 @@ export function buildStructureFromDraft(
 export function draftFromStructure(structure: BridgeAsset): StructureDraft {
   const family =
     structure.family ??
-    (structure.kind === 'culvert' ? 'box-culvert' : 'girder')
-  const kind = kindFromFamily(family)
+    (structure.kind === 'culvert'
+      ? 'box-culvert'
+      : structure.kind === 'retaining-wall'
+        ? 'retaining-wall'
+        : structure.kind === 'tunnel'
+          ? 'tunnel-lined'
+          : 'girder')
   const scheduleNos = [...new Set(structure.elements.map((e) => e.scheduleNo))].sort(
     (a, b) => a - b,
   )
@@ -201,7 +212,7 @@ export function draftFromStructure(structure: BridgeAsset): StructureDraft {
     lengthM: structure.lengthM,
     spans: structure.spans,
     deckWidthM: structure.deckWidthM ?? 12,
-    kind,
+    kind: isCulvertFamily(family) ? 'culvert' : 'bridge',
     family,
     girderCountPerSpan: girderCount,
   })

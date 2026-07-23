@@ -26,7 +26,9 @@ import { faceMetres } from '../data/defectMetrics'
 import {
   buildSceneNodes,
   findSceneNode,
+  MATERIAL_MESH_COLOR,
   nodeExtent,
+  type SceneColorMode,
   type SceneNode,
   type ScenePart,
 } from '../data/sceneLayout'
@@ -181,14 +183,16 @@ function BridgeModel({
   bridge,
   selectedId,
   isolate,
+  colorMode,
   onSelect,
 }: {
   bridge: BridgeAsset
   selectedId: string | null
   isolate: boolean
+  colorMode: SceneColorMode
   onSelect: (node: SceneNode) => void
 }) {
-  const nodes = useMemo(() => buildSceneNodes(bridge), [bridge])
+  const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
   const selected = findSceneNode(nodes, selectedId)
   const hideOthers = isolate && !!selected
 
@@ -246,6 +250,10 @@ type TwinViewerProps = {
   onIsolateChange: (value: boolean) => void
   fullscreen?: boolean
   onFullscreenChange?: (value: boolean) => void
+  /** Default mesh colouring — material unless risk/maintenance allows severity. */
+  colorMode?: SceneColorMode
+  onColorModeChange?: (mode: SceneColorMode) => void
+  allowSeverityColor?: boolean
 }
 
 export function TwinViewer({
@@ -261,6 +269,9 @@ export function TwinViewer({
   onIsolateChange,
   fullscreen = false,
   onFullscreenChange,
+  colorMode = 'material',
+  onColorModeChange,
+  allowSeverityColor = false,
 }: TwinViewerProps) {
   const [showScale, setShowScale] = useState(true)
   const [defectTool, setDefectTool] = useState<DrawnDefectKind | null>(null)
@@ -268,7 +279,7 @@ export function TwinViewer({
   const [defectCode, setDefectCode] = useState<string | null>(null)
   const controlsRef = useRef(null)
 
-  const nodes = useMemo(() => buildSceneNodes(bridge), [bridge])
+  const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
   const selectedNode = findSceneNode(nodes, selectedElementId)
   const focusTarget = selectedNode?.position ?? null
   const selectedMaterial = selectedNode?.element.material
@@ -399,6 +410,19 @@ export function TwinViewer({
           </button>
         )}
         <span className="toolbar-sep" />
+        <label className="viewer-color-mode" title="Mesh colour basis">
+          Colour
+          <select
+            value={colorMode}
+            onChange={(e) => onColorModeChange?.(e.target.value as SceneColorMode)}
+            disabled={!onColorModeChange}
+          >
+            <option value="material">Material</option>
+            {allowSeverityColor && <option value="severity">Defect severity</option>}
+            {allowSeverityColor && <option value="condition">Condition band</option>}
+          </select>
+        </label>
+        <span className="toolbar-sep" />
         <button
           type="button"
           className={defectTool === 'crack' ? 'active danger' : ''}
@@ -504,6 +528,7 @@ export function TwinViewer({
                 bridge={bridge}
                 selectedId={selectedElementId}
                 isolate={isolate}
+                colorMode={colorMode}
                 onSelect={handleElementSelect}
               />
               <ContactShadows opacity={0.35} scale={16} blur={2.5} far={8} />
@@ -536,21 +561,50 @@ export function TwinViewer({
             />
 
             <div className="condition-scale">
-              <p>Condition scale</p>
-              {(
-                [
-                  ['excellent', '#22c55e'],
-                  ['good', '#84cc16'],
-                  ['fair', '#eab308'],
-                  ['poor', '#f97316'],
-                  ['critical', '#ef4444'],
-                ] as const
-              ).map(([band, color]) => (
-                <div key={band}>
-                  <i style={{ background: color }} />
-                  {band}
-                </div>
-              ))}
+              <p>{colorMode === 'material' ? 'Material' : colorMode === 'severity' ? 'Severity' : 'Condition'}</p>
+              {colorMode === 'material'
+                ? (
+                    [
+                      ['C', 'Concrete'],
+                      ['P', 'Prestressed'],
+                      ['S', 'Steel'],
+                      ['T', 'Timber'],
+                      ['M', 'Masonry'],
+                    ] as const
+                  ).map(([code, label]) => (
+                    <div key={code}>
+                      <i style={{ background: MATERIAL_MESH_COLOR[code] }} />
+                      {label}
+                    </div>
+                  ))
+                : colorMode === 'severity'
+                  ? (
+                      [
+                        ['low', '#22c55e'],
+                        ['medium', '#eab308'],
+                        ['high', '#f97316'],
+                        ['critical', '#ef4444'],
+                      ] as const
+                    ).map(([band, color]) => (
+                      <div key={band}>
+                        <i style={{ background: color }} />
+                        {band}
+                      </div>
+                    ))
+                  : (
+                      [
+                        ['excellent', '#22c55e'],
+                        ['good', '#84cc16'],
+                        ['fair', '#eab308'],
+                        ['poor', '#f97316'],
+                        ['critical', '#ef4444'],
+                      ] as const
+                    ).map(([band, color]) => (
+                      <div key={band}>
+                        <i style={{ background: color }} />
+                        {band}
+                      </div>
+                    ))}
             </div>
 
             {showScale && <ScaleBar lengthM={bridge.lengthM} />}

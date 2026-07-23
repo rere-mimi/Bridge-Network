@@ -11,7 +11,7 @@ import {
   loadStructureDatabase,
   saveUserStructure,
 } from './data/structureStore'
-import { findSceneNode, buildSceneNodes } from './data/sceneLayout'
+import { findSceneNode, buildSceneNodes, type SceneColorMode } from './data/sceneLayout'
 import { MiniMap } from './components/MiniMap'
 import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { HomeLauncher } from './components/HomeLauncher'
@@ -67,6 +67,8 @@ export default function App() {
   const [module, setModule] = useState<PlatformModule>('overview')
   const [sidebar, setSidebar] = useState<SidebarId>('home')
   const [showHome, setShowHome] = useState(true)
+  const [twinColorMode, setTwinColorMode] = useState<SceneColorMode>('material')
+  const [workContext, setWorkContext] = useState<'general' | 'risk' | 'maintenance'>('general')
   const [structures, setStructures] = useState<BridgeAsset[]>(() => loadStructureDatabase())
   const [selectedId, setSelectedId] = useState(() => loadStructureDatabase()[0]?.id ?? '10001')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -166,6 +168,8 @@ export default function App() {
     setModule('overview')
     setEditingId(null)
     setViewerFullscreen(false)
+    setWorkContext('general')
+    setTwinColorMode('material')
   }
 
   function goOverview(structureId?: string) {
@@ -174,6 +178,7 @@ export default function App() {
     setModule('overview')
     setSidebar('home')
     setEditingId(null)
+    if (workContext === 'general') setTwinColorMode('material')
   }
 
   function goModule(id: PlatformModule) {
@@ -181,6 +186,16 @@ export default function App() {
     setModule(id)
     setSidebar('home')
     if (id !== 'create-model') setEditingId(null)
+    if (id === 'risk') {
+      setWorkContext('risk')
+      setTwinColorMode('severity')
+    } else if (id === 'maintenance' || id === 'costs') {
+      setWorkContext('maintenance')
+      setTwinColorMode('severity')
+    } else if (id === 'inspections' || id === 'overview' || id === 'create-model') {
+      setWorkContext('general')
+      setTwinColorMode('material')
+    }
   }
 
   function goSidebar(id: SidebarId) {
@@ -738,6 +753,9 @@ export default function App() {
                       if (value) setViewMode('3d')
                       setViewerFullscreen(value)
                     }}
+                    colorMode={twinColorMode}
+                    onColorModeChange={setTwinColorMode}
+                    allowSeverityColor={workContext === 'risk' || workContext === 'maintenance'}
                   />
                 )}
               </ResizablePanel>
@@ -1205,6 +1223,9 @@ export default function App() {
               onIsolateChange={setIsolate}
               fullscreen
               onFullscreenChange={setViewerFullscreen}
+              colorMode={twinColorMode}
+              onColorModeChange={setTwinColorMode}
+              allowSeverityColor={workContext === 'risk' || workContext === 'maintenance'}
             />
           </div>
         </div>
