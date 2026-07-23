@@ -16,11 +16,12 @@ type DefectDrawLayerProps = {
   elementSizeM: { length: number; width: number; height: number }
   face: DefectFace
   onComplete: (defect: DrawnDefect) => void
-  /** Required — defects pin to this element and cannot leave it */
   selectedElementId: string | null
   elementName?: string | null
   material?: string | null
   defectCode?: string
+  /** Full-bleed 2D board (no inset face restriction) */
+  unrestricted?: boolean
 }
 
 type FaceRect = { x: number; y: number; w: number; h: number }
@@ -40,15 +41,19 @@ function quantize(p: NormPoint): NormPoint {
   }
 }
 
-/** Centered face board matching element face aspect ratio (viewport 0–1 space). */
+/**
+ * Drawable board in viewport 0–1 space.
+ * Unrestricted mode fills nearly the whole stage so drawing is not clipped to a small inset.
+ */
 export function computeFaceRect(
   sizeM: { length: number; width: number; height: number },
   face: DefectFace,
+  unrestricted = true,
 ): FaceRect {
   const metres = faceMetres(sizeM, face)
   const aspect = metres.horizontalM / Math.max(metres.verticalM, 0.05)
-  const maxW = 0.78
-  const maxH = 0.72
+  const maxW = unrestricted ? 0.92 : 0.78
+  const maxH = unrestricted ? 0.82 : 0.72
   let w: number
   let h: number
   if (aspect >= 1) {
@@ -60,22 +65,13 @@ export function computeFaceRect(
   }
   return {
     x: (1 - w) / 2,
-    y: (1 - h) / 2 + 0.02,
+    y: (1 - h) / 2 + (unrestricted ? 0.01 : 0.02),
     w,
     h,
   }
 }
 
-function pointInFace(p: NormPoint, face: FaceRect, margin = 0): boolean {
-  return (
-    p.x >= face.x - margin &&
-    p.x <= face.x + face.w + margin &&
-    p.y >= face.y - margin &&
-    p.y <= face.y + face.h + margin
-  )
-}
-
-/** Map viewport point → face-local UV (0–1), clamped to element limits. */
+/** Map viewport point → face-local UV (0–1). Always accepts; clamps to the face. */
 function toFaceUv(p: NormPoint, face: FaceRect): NormPoint {
   return quantize({
     x: (p.x - face.x) / face.w,
@@ -83,7 +79,7 @@ function toFaceUv(p: NormPoint, face: FaceRect): NormPoint {
   })
 }
 
-/** Map face-local UV → viewport point for rendering inside the element board. */
+/** Map face-local UV → viewport point for rendering. */
 function fromFaceUv(uv: NormPoint, face: FaceRect): NormPoint {
   return {
     x: face.x + clamp01(uv.x) * face.w,
@@ -109,6 +105,7 @@ export function DefectDrawLayer({
   elementName,
   material,
   defectCode,
+  unrestricted = true,
 }: DefectDrawLayerProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [draft, setDraft] = useState<NormPoint[]>([])
@@ -123,8 +120,8 @@ export function DefectDrawLayer({
   const elementIdRef = useRef(selectedElementId)
 
   const faceRect = useMemo(
-    () => computeFaceRect(elementSizeM, face),
-    [elementSizeM, face],
+    () => computeFaceRect(elementSizeM, face, unrestricted),
+    [elementSizeM, face, unrestricted],
   )
   const faceRectRef = useRef(faceRect)
 
@@ -156,7 +153,6 @@ export function DefectDrawLayer({
     faceRectRef.current = faceRect
   }, [faceRect])
 
-  // Changing element / face clears draft — defects cannot move between elements.
   useEffect(() => {
     setDraft([])
     setCursor(null)
@@ -166,7 +162,6 @@ export function DefectDrawLayer({
     const elementId = elementIdRef.current
     if (!elementId) return null
 
-    // Force every vertex inside the element face (0–1 UV).
     const clamped = points.map((p) => quantize(p))
     const minPoints = currentTool === 'crack' ? 2 : 3
     if (clamped.length < minPoints) return null
@@ -242,13 +237,11 @@ export function DefectDrawLayer({
     }
   }
 
-  /** Only returns a face UV when the pointer is inside the selected element board. */
-  function toPinnedUv(event: { clientX: number; clientY: number }): NormPoint | null {
+  /** Map any click on the stage into face UV (no outside rejection). */
+  function toDrawUv(event: { clientX: number; clientY: number }): NormPoint | null {
     const vp = toViewport(event)
     if (!vp) return null
-    const board = faceRectRef.current
-    if (!pointInFace(vp, board, 0.002)) return null
-    return toFaceUv(vp, board)
+    return toFaceUv(vp, faceRectRef.current)
   }
 
   const pinnedDefects = selectedElementId
@@ -258,20 +251,12 @@ export function DefectDrawLayer({
     : []
 
   const metres = faceMetres(elementSizeM, face)
-  const clipId = `element-face-clip-${selectedElementId ?? 'none'}-${face}`
 
   if (!active) {
     if (!selectedElementId) return null
     return (
       <svg className="defect-layer readonly" viewBox="0 0 1 1" preserveAspectRatio="none">
-        <defs>
-          <clipPath id={`${clipId}-ro`} clipPathUnits="userSpaceOnUse">
-            <rect x={faceRect.x} y={faceRect.y} width={faceRect.w} height={faceRect.h} />
-          </clipPath>
-        </defs>
-        <g clipPath={`url(#${clipId}-ro)`}>
-          {renderDefects(pinnedDefects, faceRect)}
-        </g>
+        {renderDefects(pinnedDefects, faceRect)}
         <rect
           x={faceRect.x}
           y={faceRect.y}
@@ -290,7 +275,7 @@ export function DefectDrawLayer({
       <svg className="defect-layer active" viewBox="0 0 1 1" preserveAspectRatio="none">
         <rect x="0" y="0" width="1" height="1" fill="rgba(8,15,28,0.45)" />
         <text x="0.5" y="0.5" textAnchor="middle" fill="#e2e8f0" fontSize="0.035">
-          Select an element first — defects stay inside that element
+          Select an element first — then draw the defect on the 2D face
         </text>
       </svg>
     )
@@ -302,18 +287,17 @@ export function DefectDrawLayer({
   return (
     <svg
       ref={svgRef}
-      className={`defect-layer active tool-${tool ?? 'none'} element-locked`}
+      className={`defect-layer active tool-${tool ?? 'none'} draw-2d`}
       viewBox="0 0 1 1"
       preserveAspectRatio="none"
       onPointerMove={(e) => {
-        const uv = toPinnedUv(e)
-        setCursor(uv)
+        setCursor(toDrawUv(e))
       }}
       onPointerLeave={() => setCursor(null)}
       onClick={(e) => {
         if (!tool || !selectedElementId) return
-        const uv = toPinnedUv(e)
-        if (!uv) return // outside element limits — ignore
+        const uv = toDrawUv(e)
+        if (!uv) return
 
         if (tool !== 'crack' && draft.length >= 3 && dist(draft[0], uv) < 0.02) {
           finish([...draft, draft[0]])
@@ -332,31 +316,19 @@ export function DefectDrawLayer({
         finish(draft)
       }}
     >
-      <defs>
-        <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
-          <rect x={faceRect.x} y={faceRect.y} width={faceRect.w} height={faceRect.h} />
-        </clipPath>
-      </defs>
+      {/* Full-stage drawing board — no outside dim / click rejection */}
+      <rect x="0" y="0" width="1" height="1" fill="rgba(8, 15, 28, 0.92)" />
 
-      {/* Dim everything outside the selected element face — drawing is blocked there */}
-      <path
-        d={`M0,0 H1 V1 H0 Z M${faceRect.x},${faceRect.y} h${faceRect.w} v${faceRect.h} h${-faceRect.w} Z`}
-        fill="rgba(8, 15, 28, 0.62)"
-        fillRule="evenodd"
-        style={{ pointerEvents: 'none' }}
-      />
-
-      {/* Element face board */}
       <rect
         x={faceRect.x}
         y={faceRect.y}
         width={faceRect.w}
         height={faceRect.h}
-        fill="rgba(14, 165, 233, 0.06)"
+        fill="rgba(14, 165, 233, 0.08)"
         stroke="#38bdf8"
-        strokeWidth="0.0035"
+        strokeWidth="0.003"
       />
-      {/* Grid to reinforce element limits */}
+
       {[0.25, 0.5, 0.75].map((t) => (
         <g key={t} style={{ pointerEvents: 'none' }}>
           <line
@@ -380,65 +352,60 @@ export function DefectDrawLayer({
 
       <text
         x={faceRect.x + 0.012}
-        y={faceRect.y - 0.018}
+        y={Math.max(0.04, faceRect.y - 0.018)}
         fill="rgba(186,230,253,0.95)"
         fontSize="0.024"
       >
-        {elementName ? `${elementName} · ` : ''}
-        {FACE_LABEL[face]} · {metres.horizontalM.toFixed(2)}×{metres.verticalM.toFixed(2)} m ·
-        locked to element
+        2D · {elementName ? `${elementName} · ` : ''}
+        {FACE_LABEL[face]} · {metres.horizontalM.toFixed(2)}×{metres.verticalM.toFixed(2)} m
       </text>
 
-      <g clipPath={`url(#${clipId})`}>
-        {renderDefects(pinnedDefects, faceRect)}
+      {renderDefects(pinnedDefects, faceRect)}
 
-        {previewVp.length > 0 && tool === 'crack' && (
-          <polyline
-            points={previewVp.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill="none"
-            stroke="#ef4444"
-            strokeWidth={STROKE.crack}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-
-        {previewVp.length > 0 && tool && tool !== 'crack' && (
-          <polygon
-            points={previewVp.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill={tool === 'patch' ? 'rgba(56,189,248,0.16)' : 'rgba(249,115,22,0.2)'}
-            stroke={tool === 'patch' ? '#38bdf8' : '#f97316'}
-            strokeWidth={STROKE.area}
-          />
-        )}
-
-        {draft.map((uv, i) => {
-          const p = fromFaceUv(uv, faceRect)
-          return (
-            <circle
-              key={`${uv.x}-${uv.y}-${i}`}
-              cx={p.x}
-              cy={p.y}
-              r={STROKE.vertexR}
-              fill="#f8fafc"
-              stroke="#ef4444"
-              strokeWidth={STROKE.vertex}
-            />
-          )
-        })}
-      </g>
-
-      {!cursor && tool && (
-        <text
-          x="0.5"
-          y={faceRect.y + faceRect.h + 0.04}
-          textAnchor="middle"
-          fill="rgba(148,163,184,0.9)"
-          fontSize="0.022"
-        >
-          Draw only inside the highlighted element face — clicks outside are ignored
-        </text>
+      {previewVp.length > 0 && tool === 'crack' && (
+        <polyline
+          points={previewVp.map((p) => `${p.x},${p.y}`).join(' ')}
+          fill="none"
+          stroke="#ef4444"
+          strokeWidth={STROKE.crack}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       )}
+
+      {previewVp.length > 0 && tool && tool !== 'crack' && (
+        <polygon
+          points={previewVp.map((p) => `${p.x},${p.y}`).join(' ')}
+          fill={tool === 'patch' ? 'rgba(56,189,248,0.16)' : 'rgba(249,115,22,0.2)'}
+          stroke={tool === 'patch' ? '#38bdf8' : '#f97316'}
+          strokeWidth={STROKE.area}
+        />
+      )}
+
+      {draft.map((uv, i) => {
+        const p = fromFaceUv(uv, faceRect)
+        return (
+          <circle
+            key={`${uv.x}-${uv.y}-${i}`}
+            cx={p.x}
+            cy={p.y}
+            r={STROKE.vertexR}
+            fill="#f8fafc"
+            stroke="#ef4444"
+            strokeWidth={STROKE.vertex}
+          />
+        )
+      })}
+
+      <text
+        x="0.5"
+        y={Math.min(0.97, faceRect.y + faceRect.h + 0.04)}
+        textAnchor="middle"
+        fill="rgba(148,163,184,0.95)"
+        fontSize="0.022"
+      >
+        Click to add points · double-click or Enter to finish · right-click to finish · Esc to cancel
+      </text>
     </svg>
   )
 }

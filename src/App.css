@@ -1187,15 +1187,29 @@ p {
 .defect-layer.active {
   pointer-events: auto;
   cursor: crosshair;
-  background: rgba(8, 15, 28, 0.04);
+  background: transparent;
 }
 
-.defect-layer.active.element-locked {
+.defect-layer.active.draw-2d {
   cursor: crosshair;
 }
 
-.defect-layer.active.element-locked:active {
-  cursor: crosshair;
+.defect-2d-stage {
+  position: absolute;
+  inset: 0;
+  background: #0b1220;
+  z-index: 3;
+}
+
+.defect-2d-hint {
+  z-index: 5;
+}
+
+.defect-2d-back {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 6;
 }
 
 .defect-pin-bar {
