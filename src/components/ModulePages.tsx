@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { BridgeAsset, PlatformModule, SidebarId } from '../types'
 import { conditionLabel } from '../data/bridges'
+import { ModelBuilder } from './ModelBuilder'
 import { MiniMap } from './MiniMap'
 import { ResizablePanel } from './ResizablePanel'
 
@@ -8,10 +9,15 @@ type ModulePagesProps = {
   module: PlatformModule
   sidebar: SidebarId
   bridges: BridgeAsset[]
+  allBridges: BridgeAsset[]
   selectedId: string
   onSelectBridge: (id: string) => void
   onOpenOverview: () => void
   onOpenInspections: () => void
+  onOpenCreateModel: () => void
+  onCreated: (structure: BridgeAsset) => void
+  onDeleteUserStructure: (id: string) => void
+  onExportDatabase: () => void
 }
 
 export function resolveActivePage(
@@ -32,13 +38,18 @@ export function ModulePages({
   module,
   sidebar,
   bridges,
+  allBridges,
   selectedId,
   onSelectBridge,
   onOpenOverview,
   onOpenInspections,
+  onOpenCreateModel,
+  onCreated,
+  onDeleteUserStructure,
+  onExportDatabase,
 }: ModulePagesProps) {
   const page = resolveActivePage(module, sidebar)
-  const bridge = bridges.find((b) => b.id === selectedId) ?? bridges[0]
+  const bridge = bridges.find((b) => b.id === selectedId) ?? bridges[0] ?? allBridges[0]
   const alerts = bridges.filter(
     (b) =>
       b.riskLevel === 'high' ||
@@ -47,9 +58,33 @@ export function ModulePages({
       b.status === 'restricted' ||
       b.status === 'closed',
   )
+  const userCount = allBridges.filter((b) => b.source === 'user').length
 
   if (page === 'overview' || page === 'home') {
     return null
+  }
+
+  if (page === 'create-model') {
+    return (
+      <main className="module-page">
+        <ModelBuilder
+          existingIds={allBridges.map((b) => b.id)}
+          onCreated={onCreated}
+          onCancel={onOpenOverview}
+        />
+      </main>
+    )
+  }
+
+  if (!bridge) {
+    return (
+      <main className="module-page">
+        <p>No structures available.</p>
+        <button type="button" className="page-btn primary" onClick={onOpenCreateModel}>
+          Create model
+        </button>
+      </main>
+    )
   }
 
   return (
@@ -57,14 +92,27 @@ export function ModulePages({
       {page === 'assets' && (
         <PageShell
           title="Assets"
-          subtitle="Bridge inventory register — select a structure to open the digital twin."
+          subtitle="Structure database — seed network plus models you create from Appendix C."
         >
+          <div className="page-toolbar">
+            <button type="button" className="page-btn primary" onClick={onOpenCreateModel}>
+              Create model
+            </button>
+            <button type="button" className="page-btn" onClick={onExportDatabase}>
+              Export database
+            </button>
+            <span className="page-toolbar-meta">
+              {allBridges.length} structures · {userCount} user-built
+            </span>
+          </div>
           <div className="page-table-wrap">
             <table className="page-table">
               <thead>
                 <tr>
                   <th>ID</th>
                   <th>Name</th>
+                  <th>Kind</th>
+                  <th>Source</th>
                   <th>Road</th>
                   <th>Region</th>
                   <th>Type</th>
@@ -80,6 +128,8 @@ export function ModulePages({
                       <code>{item.id}</code>
                     </td>
                     <td>{item.name}</td>
+                    <td>{item.kind ?? 'bridge'}</td>
+                    <td>{item.source ?? 'seed'}</td>
                     <td>{item.road}</td>
                     <td>{item.region}</td>
                     <td>{item.structureType}</td>
@@ -89,7 +139,7 @@ export function ModulePages({
                     <td>
                       {item.riskLevel} ({item.riskScore})
                     </td>
-                    <td>
+                    <td className="page-actions">
                       <button
                         type="button"
                         className="page-btn"
@@ -100,6 +150,15 @@ export function ModulePages({
                       >
                         Open twin
                       </button>
+                      {item.source === 'user' && (
+                        <button
+                          type="button"
+                          className="page-btn danger"
+                          onClick={() => onDeleteUserStructure(item.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -439,6 +498,12 @@ export function ModulePages({
               <span>3D Model</span>
             </li>
             <li>
+              <strong>Structure database</strong>
+              <span>
+                {allBridges.length} total · {userCount} user models stored in this browser
+              </span>
+            </li>
+            <li>
               <strong>Defect tools</strong>
               <span>Crack, spall, patch enabled</span>
             </li>
@@ -447,9 +512,17 @@ export function ModulePages({
               <span>Saved in this browser</span>
             </li>
           </ul>
-          <button type="button" className="page-btn primary" onClick={onOpenOverview}>
-            Return to overview
-          </button>
+          <div className="page-toolbar">
+            <button type="button" className="page-btn primary" onClick={onOpenCreateModel}>
+              Create model
+            </button>
+            <button type="button" className="page-btn" onClick={onExportDatabase}>
+              Export database
+            </button>
+            <button type="button" className="page-btn" onClick={onOpenOverview}>
+              Return to overview
+            </button>
+          </div>
         </PageShell>
       )}
     </main>

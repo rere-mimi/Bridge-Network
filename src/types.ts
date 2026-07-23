@@ -1,6 +1,7 @@
 export type PlatformModule =
   | 'overview'
   | 'assets'
+  | 'create-model'
   | 'inspections'
   | 'condition'
   | 'risk'
@@ -103,6 +104,9 @@ export type InspectionHistoryItem = {
   score: number
 }
 
+export type StructureKind = 'bridge' | 'culvert'
+export type StructureSource = 'seed' | 'user'
+
 export type BridgeAsset = {
   /** Unique 5-digit numeric bridge ID */
   id: string
@@ -115,8 +119,25 @@ export type BridgeAsset = {
   yearBuilt: number
   lengthM: number
   spans: number
+  /** Carriageway / barrel width */
+  deckWidthM?: number
   material: string
   structureType: string
+  /** Bridge vs culvert */
+  kind?: StructureKind
+  /** Appendix C family used to seed elements */
+  family?:
+    | 'girder'
+    | 'box'
+    | 'arch'
+    | 'slab'
+    | 'box-culvert'
+    | 'pipe-culvert'
+    | 'pipe-arch-culvert'
+    | 'arch-culvert'
+  /** Seed demo data vs user-created database record */
+  source?: StructureSource
+  createdAt?: string
   owner: string
   status: OperationalStatus
   lastInspection: string

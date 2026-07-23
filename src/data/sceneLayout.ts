@@ -238,6 +238,66 @@ export function buildSceneNodes(bridge: BridgeAsset): SceneNode[] {
             kind: 'marker',
           }
           break
+        case 600:
+        case 601:
+        case 602:
+        case 603:
+          node = {
+            element: el,
+            position: [x, 0.35, 0],
+            size: [spanLenScene * 0.92, 0.7, SCENE_WIDTH * 0.55],
+            sizeM: { length: spanLenM, width: deckWidthM, height: 2.4 },
+            color,
+            faces: ['front', 'end', 'top'],
+            kind: 'solid',
+          }
+          break
+        case 604:
+          node = {
+            element: el,
+            position: [x, 0.02, 0],
+            size: [spanLenScene * 0.9, 0.08, SCENE_WIDTH * 0.5],
+            sizeM: { length: spanLenM, width: deckWidthM * 0.9, height: 0.2 },
+            color: '#64748b',
+            faces: ['top', 'front', 'end'],
+            kind: 'solid',
+          }
+          break
+        case 605:
+          node = {
+            element: el,
+            position: [x - spanLenScene * 0.4, 0.4, SCENE_WIDTH * 0.35],
+            size: [0.7, 0.8, 0.16],
+            sizeM: { length: 2.5, width: 0.35, height: 2.2 },
+            color,
+            faces: ['front', 'side', 'top'],
+            kind: 'solid',
+          }
+          break
+        case 606:
+          node = {
+            element: el,
+            position: [x - spanLenScene * 0.45, 0.55, 0],
+            size: [0.18, 0.9, SCENE_WIDTH * 0.6],
+            sizeM: { length: 0.4, width: deckWidthM, height: 2.5 },
+            color,
+            faces: ['front', 'side', 'top'],
+            kind: 'solid',
+          }
+          break
+        case 607:
+        case 609:
+        case 610:
+          node = {
+            element: el,
+            position: [x, 0.15, ((el.scheduleNo % 3) - 1) * 0.35],
+            size: [0.45, 0.35, 0.45],
+            sizeM: { length: 1.2, width: 1.2, height: 1.0 },
+            color,
+            faces: ['top', 'front', 'side'],
+            kind: 'solid',
+          }
+          break
         default:
           node = {
             element: el,

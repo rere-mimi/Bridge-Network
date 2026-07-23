@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
-import { BRIDGES } from '../data/bridges'
+import { loadStructureDatabase } from '../data/structureStore'
 import { buildSceneNodes, findSceneNode } from '../data/sceneLayout'
 import { CrossSectionView } from './CrossSectionView'
 
 function parseSectionParams() {
-  const hash = window.location.hash.replace(/^#\/?section\??/, '')
-  const query = hash.includes('=') ? hash : window.location.hash.split('?')[1] ?? ''
-  // Support #/section?bridge=10001&element=...
   const full = window.location.hash
   const qIndex = full.indexOf('?')
-  const params = new URLSearchParams(qIndex >= 0 ? full.slice(qIndex + 1) : query)
+  const params = new URLSearchParams(qIndex >= 0 ? full.slice(qIndex + 1) : '')
   return {
     bridgeId: params.get('bridge') ?? '',
     elementId: params.get('element') ?? '',
@@ -18,14 +15,15 @@ function parseSectionParams() {
 
 export function CrossSectionApp() {
   const { bridgeId, elementId } = useMemo(() => parseSectionParams(), [])
-  const bridge = BRIDGES.find((b) => b.id === bridgeId) ?? BRIDGES[0]
-  const nodes = useMemo(() => buildSceneNodes(bridge), [bridge])
+  const structures = useMemo(() => loadStructureDatabase(), [])
+  const bridge = structures.find((b) => b.id === bridgeId) ?? structures[0]
+  const nodes = useMemo(() => (bridge ? buildSceneNodes(bridge) : []), [bridge])
   const node =
     findSceneNode(nodes, elementId) ??
     nodes.find((n) => n.element.id === elementId) ??
     nodes[0]
 
-  if (!node) {
+  if (!bridge || !node) {
     return (
       <div className="section-window empty">
         <h1>No element selected</h1>

@@ -7,7 +7,15 @@
 export type ElementGroup = 'abutment' | 'pier' | 'span' | 'approach'
 export type QuantityUnit = 'm²' | 'm' | 'each' | 'm³'
 export type MaterialCode = 'S' | 'P' | 'C' | 'T' | 'M' | 'O'
-export type StructureFamily = 'girder' | 'box' | 'arch' | 'slab'
+export type StructureFamily =
+  | 'girder'
+  | 'box'
+  | 'arch'
+  | 'slab'
+  | 'box-culvert'
+  | 'pipe-culvert'
+  | 'pipe-arch-culvert'
+  | 'arch-culvert'
 
 /** High-level asset family used for inventory grouping. */
 export type ElementMajorGroup =
@@ -95,17 +103,17 @@ export const STANDARD_ELEMENTS: StandardElement[] = [
   { no: 503, name: "Feature crossed", significance: 1, unit: 'each', category: "Miscellaneous", groups: ['abutment', 'span'] },
   { no: 504, name: "Services", significance: 2, unit: 'each', category: "Miscellaneous", groups: ['approach', 'abutment', 'pier', 'span'] },
   { no: 505, name: "Open drainage", significance: 2, unit: 'each', category: "Miscellaneous", groups: ['approach', 'abutment', 'pier', 'span'] },
-  { no: 600, name: "Box culvert", significance: 4, unit: 'm', category: "Culvert", groups: [] },
-  { no: 601, name: "Pipe culvert", significance: 4, unit: 'm', category: "Culvert", groups: [] },
-  { no: 602, name: "Pipe-arch culvert", significance: 4, unit: 'm', category: "Culvert", groups: [] },
-  { no: 603, name: "Arch culvert", significance: 4, unit: 'm', category: "Culvert", groups: [] },
-  { no: 604, name: "Invert protection", significance: 3, unit: 'm', category: "Culvert", groups: [] },
-  { no: 605, name: "Wingwall", significance: 3, unit: 'm', category: "Culvert", groups: [] },
-  { no: 606, name: "Headwall", significance: 2, unit: 'm', category: "Culvert", groups: [] },
-  { no: 607, name: "Footing", significance: 3, unit: 'each', category: "Culvert", groups: [] },
-  { no: 608, name: "Waterdrive", significance: 4, unit: 'm', category: "Culvert", groups: [] },
-  { no: 609, name: "Abutment (Culvert)", significance: 4, unit: 'm', category: "Culvert", groups: [] },
-  { no: 610, name: "Piles (Culvert)", significance: 4, unit: 'each', category: "Culvert", groups: [] },
+  { no: 600, name: "Box culvert", significance: 4, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 601, name: "Pipe culvert", significance: 4, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 602, name: "Pipe-arch culvert", significance: 4, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 603, name: "Arch culvert", significance: 4, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 604, name: "Invert protection", significance: 3, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 605, name: "Wingwall", significance: 3, unit: 'm', category: "Culvert", groups: ['span', 'approach'] },
+  { no: 606, name: "Headwall", significance: 2, unit: 'm', category: "Culvert", groups: ['span', 'approach'] },
+  { no: 607, name: "Footing", significance: 3, unit: 'each', category: "Culvert", groups: ['span'] },
+  { no: 608, name: "Waterdrive", significance: 4, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 609, name: "Abutment (Culvert)", significance: 4, unit: 'm', category: "Culvert", groups: ['span'] },
+  { no: 610, name: "Piles (Culvert)", significance: 4, unit: 'each', category: "Culvert", groups: ['span'] },
   { no: 650, name: "Tunnel lining", significance: 4, unit: 'm', category: "Tunnel", groups: [] },
   { no: 651, name: "Tunnel ceiling panels/roofing", significance: 4, unit: 'm', category: "Tunnel", groups: [] },
   { no: 700, name: "Wall facing/panels", significance: 4, unit: 'm²', category: "Retaining wall/noise wall", groups: ['approach'] },
@@ -552,6 +560,23 @@ export function groupLabel(group: ElementGroup, index: number): string {
 
 /** Typical inspected subset used to seed a live inventory for a structure family. */
 export function elementsForFamily(family: StructureFamily): StandardElement[] {
+  if (
+    family === 'box-culvert' ||
+    family === 'pipe-culvert' ||
+    family === 'pipe-arch-culvert' ||
+    family === 'arch-culvert'
+  ) {
+    const include = new Set<number>([
+      1, 2, 500, 502, 505,
+      604, 605, 606, 607, 610,
+    ])
+    if (family === 'box-culvert') include.add(600)
+    if (family === 'pipe-culvert') include.add(601)
+    if (family === 'pipe-arch-culvert') include.add(602)
+    if (family === 'arch-culvert') include.add(603)
+    return STANDARD_ELEMENTS.filter((e) => include.has(e.no))
+  }
+
   const include = new Set<number>([
     // Carriageway
     1, 2, 3, 4,
@@ -581,6 +606,36 @@ export function elementsForFamily(family: StructureFamily): StandardElement[] {
   }
 
   return STANDARD_ELEMENTS.filter((e) => include.has(e.no))
+}
+
+export function isCulvertFamily(family: StructureFamily): boolean {
+  return (
+    family === 'box-culvert' ||
+    family === 'pipe-culvert' ||
+    family === 'pipe-arch-culvert' ||
+    family === 'arch-culvert'
+  )
+}
+
+export function familyLabel(family: StructureFamily): string {
+  switch (family) {
+    case 'girder':
+      return 'Open girder / beam bridge'
+    case 'box':
+      return 'Box girder bridge'
+    case 'arch':
+      return 'Arch bridge'
+    case 'slab':
+      return 'Slab bridge'
+    case 'box-culvert':
+      return 'Box culvert'
+    case 'pipe-culvert':
+      return 'Pipe culvert'
+    case 'pipe-arch-culvert':
+      return 'Pipe-arch culvert'
+    case 'arch-culvert':
+      return 'Arch culvert'
+  }
 }
 
 export function descriptionForElement(

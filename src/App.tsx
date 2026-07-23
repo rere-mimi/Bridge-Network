@@ -1,16 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BRIDGES, conditionLabel } from './data/bridges'
+import { conditionLabel } from './data/bridges'
+import {
+  deleteUserStructure,
+  exportDatabaseJson,
+  loadStructureDatabase,
+  saveUserStructure,
+} from './data/structureStore'
 import { MiniMap } from './components/MiniMap'
 import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
-import type { BridgeElement, DrawnDefect, Filters, PlatformModule, SidebarId } from './types'
+import type { BridgeAsset, BridgeElement, DrawnDefect, Filters, PlatformModule, SidebarId } from './types'
 import './App.css'
 import { openCrossSectionWindow } from './components/CrossSectionApp'
 
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'assets', label: 'Assets' },
+  { id: 'create-model', label: 'Create model' },
   { id: 'inspections', label: 'Inspections' },
   { id: 'condition', label: 'Condition' },
   { id: 'risk', label: 'Risk' },
@@ -38,7 +45,8 @@ const EMPTY_FILTERS: Filters = {
 export default function App() {
   const [module, setModule] = useState<PlatformModule>('overview')
   const [sidebar, setSidebar] = useState<SidebarId>('home')
-  const [selectedId, setSelectedId] = useState(BRIDGES[0].id)
+  const [structures, setStructures] = useState<BridgeAsset[]>(() => loadStructureDatabase())
+  const [selectedId, setSelectedId] = useState(() => loadStructureDatabase()[0]?.id ?? '10001')
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [viewMode, setViewMode] = useState<'3d' | 'section' | 'map' | 'drawings'>('3d')
   const [selectedPanel, setSelectedPanel] = useState<string | null>('viewer')
@@ -56,7 +64,7 @@ export default function App() {
   } | null>(null)
 
   const filtered = useMemo(() => {
-    return BRIDGES.filter((b) => {
+    return structures.filter((b) => {
       if (filters.region !== 'all' && b.region !== filters.region) return false
       if (filters.structureType !== 'all' && b.structureType !== filters.structureType)
         return false
@@ -64,15 +72,15 @@ export default function App() {
       if (filters.risk !== 'all' && b.riskLevel !== filters.risk) return false
       return true
     })
-  }, [filters])
+  }, [filters, structures])
 
-  const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? BRIDGES[0]
+  const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? structures[0]
 
   useEffect(() => {
     setDrawnDefects([])
     setSelectedElement(null)
     setIsolate(false)
-  }, [bridge.id])
+  }, [bridge?.id])
 
   const activePage = resolveActivePage(module, sidebar)
   const showOverview = activePage === 'overview' || activePage === 'home'
@@ -93,13 +101,50 @@ export default function App() {
     if (id === 'assets') setModule('assets')
   }
 
-  const regions = [...new Set(BRIDGES.map((b) => b.region))]
-  const types = [...new Set(BRIDGES.map((b) => b.structureType))]
+  function handleCreated(structure: BridgeAsset) {
+    const next = saveUserStructure(structure)
+    setStructures(next)
+    setSelectedId(structure.id)
+    setModule('overview')
+    setSidebar('home')
+  }
+
+  function handleDelete(id: string) {
+    const next = deleteUserStructure(id)
+    setStructures(next)
+    if (selectedId === id) setSelectedId(next[0]?.id ?? '10001')
+  }
+
+  function handleExport() {
+    const blob = new Blob([exportDatabaseJson(structures)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bridge-network-database-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (!bridge) {
+    return (
+      <div className="twin-app">
+        <main className="module-page">
+          <p>No structures in the database yet.</p>
+          <button type="button" className="page-btn primary" onClick={() => goModule('create-model')}>
+            Create model
+          </button>
+        </main>
+      </div>
+    )
+  }
+
+  const regions = [...new Set(structures.map((b) => b.region))]
+  const types = [...new Set(structures.map((b) => b.structureType))]
 
   const preferred =
     bridge.elements.find((e) => e.scheduleNo === 201 && e.id.endsWith('-4')) ??
-    bridge.elements.find((e) => e.scheduleNo === 200) ??
-    bridge.elements.find((e) => e.majorGroup === 'Superstructure') ??
+    bridge.elements.find((e) => e.scheduleNo === 200 || e.scheduleNo === 600 || e.scheduleNo === 601) ??
+    bridge.elements.find((e) => e.majorGroup === 'Superstructure' || e.majorGroup === 'Culvert') ??
     bridge.elements[0]
 
   const activeElement =
@@ -185,10 +230,15 @@ export default function App() {
             module={module}
             sidebar={sidebar}
             bridges={filtered}
+            allBridges={structures}
             selectedId={bridge.id}
             onSelectBridge={setSelectedId}
             onOpenOverview={goOverview}
             onOpenInspections={() => goModule('inspections')}
+            onOpenCreateModel={() => goModule('create-model')}
+            onCreated={handleCreated}
+            onDeleteUserStructure={handleDelete}
+            onExportDatabase={handleExport}
           />
         ) : (
           <>
@@ -318,7 +368,7 @@ export default function App() {
                       {item.id} · {item.name}
                     </strong>
                     <span>
-                      {item.region} · CI {item.conditionIndex}
+                      {item.region} · {item.kind ?? 'bridge'} · CI {item.conditionIndex}
                     </span>
                   </button>
                 </li>

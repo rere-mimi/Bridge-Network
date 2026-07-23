@@ -4,6 +4,7 @@ import {
   formatElementCode,
   formatElementId,
   groupLabel,
+  isCulvertFamily,
   majorGroupFor,
   materialFromBridge,
   subgroupFor,
@@ -58,19 +59,17 @@ export type BuildElementsOptions = {
   girderCountPerSpan?: number
   /** Bridge material string used to pick Appendix F material variant */
   material?: string
+  /** Optional Appendix C element numbers to include (defaults to family set) */
+  includeElementNos?: number[]
 }
 
 /**
- * Build Appendix C inventory instances for a bridge.
+ * Build Appendix C inventory instances for a bridge or culvert.
  * Location groups follow Table C2:
  * - Approaches AP1, AP2
- * - Abutments A1, A2
- * - Piers P1..P(spans-1)
+ * - Abutments A1, A2 (bridges)
+ * - Piers P1..P(spans-1) (bridges)
  * - Spans S1..Sn
- *
- * Element IDs: `{bridgeId}-{location}-{code}[-seq]` e.g. 10001-S2-201-4
- * Major groups: Superstructure (roadway, joints, deck/beams, bearings)
- *               Substructure (abutment, pier, columns, piles)
  */
 export function buildAppendixCElements(options: BuildElementsOptions): BridgeElement[] {
   const {
@@ -83,10 +82,14 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
     riskBase = 45,
     girderCountPerSpan = 4,
     material = 'Concrete',
+    includeElementNos,
   } = options
 
   const spanLength = lengthM / Math.max(spans, 1)
-  const catalogue = elementsForFamily(family)
+  const culvert = isCulvertFamily(family)
+  const catalogue = elementsForFamily(family).filter((el) =>
+    includeElementNos ? includeElementNos.includes(el.no) : true,
+  )
   const preferredMaterial = materialFromBridge(material)
   const elements: BridgeElement[] = []
 
@@ -108,6 +111,7 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
       if (el.no === 302) quantity = girderCountPerSpan
       if (el.no === 2 || el.no === 3) quantity = Math.round(spanLength * 2)
       if (el.no === 404 || el.no === 407) quantity = group === 'pier' ? 2 : 4
+      if (el.no >= 600 && el.no <= 603) quantity = Math.round(lengthM)
 
       const desc = descriptionForElement(el.no, preferredMaterial)
       const majorGroup = majorGroupFor(el.no)
@@ -174,14 +178,20 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
 
   pushGroup('approach', 1)
   pushGroup('approach', 2)
-  pushGroup('abutment', 1)
+
+  if (!culvert) {
+    pushGroup('abutment', 1)
+  }
 
   for (let s = 1; s <= spans; s++) {
     pushGroup('span', s)
-    if (s < spans) pushGroup('pier', s)
+    if (!culvert && s < spans) pushGroup('pier', s)
   }
 
-  pushGroup('abutment', 2)
+  if (!culvert) {
+    pushGroup('abutment', 2)
+  }
+
   return elements
 }
 
