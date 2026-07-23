@@ -77,6 +77,28 @@ export function AppShell({ view, onViewChange, clock, metrics, children }: Shell
         ))}
       </nav>
 
+      <section className="mission-banner" aria-label="Platform objective">
+        <div>
+          <p className="mission-kicker">Live BIS platform</p>
+          <h1>
+            Bridge inventory, inspection, condition, risk & digital twin — in one place
+          </h1>
+          <p>
+            Short term: operational BIS data. Longer term: lifecycle forecasting and
+            maintenance planning as inspection history grows.
+          </p>
+        </div>
+        <div className="mission-steps" aria-hidden="true">
+          <span>1 Elements</span>
+          <span>2 Quantities</span>
+          <span>3 BIS entry</span>
+          <span>4 Inspect</span>
+          <span>5 BMP</span>
+          <span>6 BIS data</span>
+          <span>7 Reports</span>
+        </div>
+      </section>
+
       <section className="metrics-bar" aria-label="Network metrics">
         <article className="metric-tile">
           <p className="metric-label">Inventory</p>

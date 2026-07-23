@@ -25,6 +25,10 @@ export function OverviewView({
     <main className="dashboard-main">
       <div className="map-stage">
         <div className="map-frame">
+          <div className="map-overlay-title">
+            <strong>NZ bridge network</strong>
+            <span>Click a bridge · then open Inspection for the 7-step BIS workflow</span>
+          </div>
           <MapView bridges={bridges} selectedId={selectedId} onSelect={onSelect} />
           <div className="map-legend" aria-hidden="true">
             <span>

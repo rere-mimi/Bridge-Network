@@ -80,7 +80,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.75rem;
   animation: rise-in 0.75s ease 0.05s both;
 }
 
@@ -92,9 +92,10 @@
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.72);
   border-radius: 12px;
-  padding: 0.55rem 0.85rem;
+  padding: 0.65rem 0.95rem;
   color: var(--ink-soft);
-  font-weight: 650;
+  font-size: 0.95rem;
+  font-weight: 700;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -115,6 +116,91 @@
   background: var(--teal);
   border-color: var(--teal);
   color: #e8f6f2;
+}
+
+.mission-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(11, 61, 74, 0.14);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(11, 61, 74, 0.95), rgba(20, 90, 104, 0.88)),
+    #0b3d4a;
+  color: #e8f6f2;
+  box-shadow: var(--shadow);
+  animation: rise-in 0.78s ease 0.06s both;
+}
+
+.mission-kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f0a202;
+}
+
+.mission-banner h1 {
+  margin: 0.35rem 0 0.45rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.mission-banner p {
+  max-width: 62ch;
+  color: rgba(232, 246, 242, 0.82);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.mission-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.mission-steps span {
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.map-overlay-title {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 500;
+  display: grid;
+  gap: 0.15rem;
+  max-width: min(420px, calc(100% - 1.7rem));
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.map-overlay-title strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--teal);
+}
+
+.map-overlay-title span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .live-chip {
@@ -1297,6 +1383,14 @@ code {
   .report-cards,
   .stepper {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mission-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .mission-steps {
+    justify-content: flex-start;
   }
 
   .dashboard-main,
