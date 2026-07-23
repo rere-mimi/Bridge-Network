@@ -33,12 +33,8 @@ import type {
 } from './types'
 import './App.css'
 import { openCrossSectionWindow } from './components/CrossSectionApp'
-<<<<<<< HEAD
 import { SiteHazardCards, riskDonutStyle } from './components/SiteHazardCards'
-=======
 import { ModelExchangePanel } from './components/ModelExchangePanel'
->>>>>>> origin/cursor/revit-ifc-exchange-4cb3
-
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'assets', label: 'Assets' },
