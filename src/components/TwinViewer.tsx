@@ -354,6 +354,8 @@ type TwinViewerProps = {
   height?: number
   drawnDefects: DrawnDefect[]
   onDrawnDefectsChange: (defects: DrawnDefect[]) => void
+  isolate: boolean
+  onIsolateChange: (value: boolean) => void
 }
 
 export function TwinViewer({
@@ -365,8 +367,9 @@ export function TwinViewer({
   height,
   drawnDefects,
   onDrawnDefectsChange,
+  isolate,
+  onIsolateChange,
 }: TwinViewerProps) {
-  const [isolate, setIsolate] = useState(false)
   const [showScale, setShowScale] = useState(true)
   const [defectTool, setDefectTool] = useState<DrawnDefectKind | null>(null)
 
@@ -376,6 +379,21 @@ export function TwinViewer({
 
   const drawingActive =
     !!defectTool && (viewMode === '3d' || viewMode === 'section')
+
+  function handleElementSelect(spot: Hotspot) {
+    // Second left-click on the already selected element → isolate + 2D section
+    if (selectedElementId === spot.id) {
+      onIsolateChange(true)
+      onViewMode('section')
+      return
+    }
+    onSelectElement({
+      id: spot.id,
+      label: spot.label,
+      element: spot.element,
+    })
+    onIsolateChange(false)
+  }
 
   return (
     <section className="twin-viewer">
@@ -405,7 +423,7 @@ export function TwinViewer({
           className={isolate ? 'active' : ''}
           disabled={!selectedElementId}
           title="Isolate selected element"
-          onClick={() => setIsolate((v) => !v)}
+          onClick={() => onIsolateChange(!isolate)}
         >
           Isolate
         </button>
@@ -478,13 +496,7 @@ export function TwinViewer({
                 bridge={bridge}
                 selectedId={selectedElementId}
                 isolate={isolate}
-                onSelect={(spot) =>
-                  onSelectElement({
-                    id: spot.id,
-                    label: spot.label,
-                    element: spot.element,
-                  })
-                }
+                onSelect={handleElementSelect}
               />
               <ContactShadows opacity={0.35} scale={16} blur={2.5} far={8} />
               <OrbitControls
@@ -525,8 +537,8 @@ export function TwinViewer({
                   ? 'Click to place crack points · double-click / Enter / right-click to finish'
                   : 'Click to place area points · click near start or Enter to close'
                 : isolate
-                  ? 'Isolate on · selected element only'
-                  : 'Orbit · select element · use toolbar tools'}
+                  ? 'Isolated element · 2D section available from toolbar'
+                  : 'Click element to select · click again to isolate + open 2D section'}
             </p>
             {isolate && selectedPart && (
               <div className="isolate-badge">Isolated · {selectedPart}</div>

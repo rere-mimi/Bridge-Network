@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BRIDGES, conditionLabel } from './data/bridges'
 import { MiniMap } from './components/MiniMap'
+import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
 import type { BridgeElement, DrawnDefect, Filters, PlatformModule, SidebarId } from './types'
@@ -41,6 +42,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'3d' | 'section' | 'map' | 'drawings'>('3d')
   const [selectedPanel, setSelectedPanel] = useState<string | null>('viewer')
   const [drawnDefects, setDrawnDefects] = useState<DrawnDefect[]>([])
+  const [isolate, setIsolate] = useState(false)
   const [viewerHeight, setViewerHeight] = useState(() => {
     if (typeof window === 'undefined') return 420
     const saved = window.localStorage.getItem('twin-panel-h:viewer-stage')
@@ -68,7 +70,27 @@ export default function App() {
   useEffect(() => {
     setDrawnDefects([])
     setSelectedElement(null)
+    setIsolate(false)
   }, [bridge.id])
+
+  const activePage = resolveActivePage(module, sidebar)
+  const showOverview = activePage === 'overview' || activePage === 'home'
+
+  function goOverview() {
+    setModule('overview')
+    setSidebar('home')
+  }
+
+  function goModule(id: PlatformModule) {
+    setModule(id)
+    setSidebar('home')
+  }
+
+  function goSidebar(id: SidebarId) {
+    setSidebar(id)
+    if (id === 'home') setModule('overview')
+    if (id === 'assets') setModule('assets')
+  }
 
   const regions = [...new Set(BRIDGES.map((b) => b.region))]
   const types = [...new Set(BRIDGES.map((b) => b.structureType))]
@@ -105,8 +127,13 @@ export default function App() {
             <button
               key={item.id}
               type="button"
-              className={module === item.id ? 'active' : ''}
-              onClick={() => setModule(item.id)}
+              className={
+                (sidebar === 'home' && module === item.id) ||
+                (sidebar === 'assets' && item.id === 'assets')
+                  ? 'active'
+                  : ''
+              }
+              onClick={() => goModule(item.id)}
             >
               {item.label}
             </button>
@@ -114,13 +141,13 @@ export default function App() {
         </nav>
 
         <div className="top-utils" aria-label="Utilities">
-          <button type="button" title="Notifications">
+          <button type="button" title="Notifications" onClick={() => goSidebar('alerts')}>
             🔔
           </button>
-          <button type="button" title="Help">
+          <button type="button" title="Help" onClick={() => goSidebar('settings')}>
             ?
           </button>
-          <button type="button" title="Settings">
+          <button type="button" title="Settings" onClick={() => goSidebar('settings')}>
             ⚙
           </button>
           <div className="avatar">BN</div>
@@ -135,13 +162,25 @@ export default function App() {
               type="button"
               className={sidebar === item.id ? 'active' : ''}
               title={item.label}
-              onClick={() => setSidebar(item.id)}
+              onClick={() => goSidebar(item.id)}
             >
               <span>{item.icon}</span>
             </button>
           ))}
         </aside>
 
+        {!showOverview ? (
+          <ModulePages
+            module={module}
+            sidebar={sidebar}
+            bridges={filtered}
+            selectedId={bridge.id}
+            onSelectBridge={setSelectedId}
+            onOpenOverview={goOverview}
+            onOpenInspections={() => goModule('inspections')}
+          />
+        ) : (
+          <>
         <aside className="left-panel">
           <ResizablePanel
             title="Network map"
@@ -359,12 +398,15 @@ export default function App() {
                   onSelectElement={(payload) => {
                     setSelectedElement(payload)
                     setSelectedPanel('element-details')
+                    setIsolate(false)
                   }}
                   viewMode={viewMode}
                   onViewMode={setViewMode}
                   height={Math.max(220, viewerHeight - 96)}
                   drawnDefects={drawnDefects}
                   onDrawnDefectsChange={setDrawnDefects}
+                  isolate={isolate}
+                  onIsolateChange={setIsolate}
                 />
               </ResizablePanel>
             </div>
@@ -398,6 +440,25 @@ export default function App() {
                 {activeElement && (
                   <div className="element-detail">
                     <h3>{activeElement.label}</h3>
+                    <div className="element-actions">
+                      <button
+                        type="button"
+                        className={isolate ? 'page-btn primary' : 'page-btn'}
+                        onClick={() => setIsolate((v) => !v)}
+                      >
+                        {isolate ? 'Isolated' : 'Isolate'}
+                      </button>
+                      <button
+                        type="button"
+                        className="page-btn primary"
+                        onClick={() => {
+                          setIsolate(true)
+                          setViewMode('section')
+                        }}
+                      >
+                        2D cross section
+                      </button>
+                    </div>
                     <div className="mini-kpis">
                       <div>
                         <span>Condition</span>
@@ -634,17 +695,9 @@ export default function App() {
               </div>
             </ResizablePanel>
           </section>
-
-          {module !== 'overview' && (
-            <section className="module-note">
-              <strong>{TOP_NAV.find((n) => n.id === module)?.label}</strong>
-              <span>
-                Module focused on {bridge.name}. Use Overview for the full digital twin
-                workspace.
-              </span>
-            </section>
-          )}
         </main>
+          </>
+        )}
       </div>
     </div>
   )
