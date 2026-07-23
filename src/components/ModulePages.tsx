@@ -5,8 +5,10 @@ import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
 import { ModelCataloguePanel } from './ModelCataloguePanel'
 import { MaintenanceActivitiesPanel } from './MaintenanceActivitiesPanel'
+import { MaintenanceWorklist } from './MaintenanceWorklist'
 import { NzNetworkMap } from './NzNetworkMap'
 import { ResizablePanel } from './ResizablePanel'
+import type { MaintenanceRecommendation } from '../types'
 
 type ModulePagesProps = {
   module: PlatformModule
@@ -24,6 +26,10 @@ type ModulePagesProps = {
   onDeleteUserStructure: (id: string) => void
   onExportDatabase: () => void
   onImportMapBridge: (bridge: NzMapBridge) => void
+  onUpdateRecommendations?: (
+    bridgeId: string,
+    recommendations: MaintenanceRecommendation[],
+  ) => void
 }
 
 export function resolveActivePage(
@@ -56,6 +62,7 @@ export function ModulePages({
   onDeleteUserStructure,
   onExportDatabase,
   onImportMapBridge,
+  onUpdateRecommendations,
 }: ModulePagesProps) {
   const page = resolveActivePage(module, sidebar)
   const bridge = bridges.find((b) => b.id === selectedId) ?? bridges[0] ?? allBridges[0]
@@ -437,13 +444,41 @@ export function ModulePages({
               </div>
             </ResizablePanel>
           </div>
+          {bridge && (
+            <MaintenanceWorklist
+              bridge={bridge}
+              onUpdateStatus={(id, status) => {
+                const next = (bridge.recommendations ?? []).map((r) =>
+                  r.id === id ? { ...r, status } : r,
+                )
+                onUpdateRecommendations?.(bridge.id, next)
+              }}
+              onRemove={(id) => {
+                const next = (bridge.recommendations ?? []).filter((r) => r.id !== id)
+                onUpdateRecommendations?.(bridge.id, next)
+              }}
+            />
+          )}
           {bridge && <MaintenanceActivitiesPanel bridge={bridge} />}
         </PageShell>
       )}
 
       {page === 'costs' && (
-        <PageShell title="Costs" subtitle="Indicative whole-of-life cost view.">
+        <PageShell
+          title="Costs"
+          subtitle="Inspection worklist totals and indicative whole-of-life envelope."
+        >
           <div className="page-kpi-row">
+            <article className="page-kpi static">
+              <span>Open worklist</span>
+              <strong>
+                $
+                {(bridge.recommendations ?? [])
+                  .filter((r) => r.status === 'proposed' || r.status === 'approved')
+                  .reduce((s, r) => s + r.totalCost, 0)
+                  .toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </strong>
+            </article>
             <article className="page-kpi static">
               <span>10-yr routine</span>
               <strong>
@@ -472,8 +507,10 @@ export function ModulePages({
               </strong>
             </article>
           </div>
+          {bridge && <MaintenanceWorklist bridge={bridge} />}
           <p className="page-note">
-            Cost module for {bridge.name}. Open Overview to inspect defects driving spend.
+            Worklist costs come from inspection activity selections. Forecast $M rows remain
+            indicative programme envelopes.
           </p>
           <button type="button" className="page-btn primary" onClick={onOpenOverview}>
             Back to twin overview

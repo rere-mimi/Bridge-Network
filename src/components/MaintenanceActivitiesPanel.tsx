@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { BridgeAsset, BridgeElement } from '../types'
 import {
+  formatMoney,
+  saveActivityPriceOverride,
+  unitPriceForActivity,
+} from '../data/activityPricing'
+import {
   activitiesForSchedule,
   activitySetsForSchedule,
   MAINTENANCE_CATEGORY_LABEL,
@@ -17,7 +22,6 @@ function uniqueElements(elements: BridgeElement[]): BridgeElement[] {
   for (const el of elements) {
     const key = `${el.scheduleNo}`
     if (seen.has(key)) continue
-    // Prefer first instance per schedule for activity catalogue lookup
     seen.add(key)
     out.push(el)
   }
@@ -30,16 +34,18 @@ export function MaintenanceActivitiesPanel({ bridge }: Props) {
     () => elementOptions[0]?.scheduleNo ?? null,
   )
   const [categoryFilter, setCategoryFilter] = useState<'all' | MaintenanceCategory>('all')
+  const [priceTick, setPriceTick] = useState(0)
 
   const selected =
     elementOptions.find((e) => e.scheduleNo === selectedSchedule) ?? elementOptions[0] ?? null
 
   const activities = useMemo(() => {
+    void priceTick
     if (!selected) return []
     const list = activitiesForSchedule(selected.scheduleNo)
     if (categoryFilter === 'all') return list
     return list.filter((a) => a.category === categoryFilter)
-  }, [selected, categoryFilter])
+  }, [selected, categoryFilter, priceTick])
 
   const sets = selected ? activitySetsForSchedule(selected.scheduleNo) : []
 
@@ -49,8 +55,8 @@ export function MaintenanceActivitiesPanel({ bridge }: Props) {
         <div>
           <h2>Activities per element</h2>
           <p>
-            Recommended maintenance activities from MTQ inspection manual §15.8 (Table 15.8-1).
-            Unit price will be applied when an activity is selected at inspection.
+            MTQ §15.8 catalogue mapped to Appendix C elements. Edit unit prices (NZD) here — they
+            apply when selecting activities during inspection.
           </p>
         </div>
         <dl className="maint-activities-meta">
@@ -94,12 +100,6 @@ export function MaintenanceActivitiesPanel({ bridge }: Props) {
               ))}
             </ul>
           )}
-          {selected && sets.length === 0 && (
-            <p className="model-help">
-              No mapped activity set for this element yet. Global structure activities may still
-              apply at inspection.
-            </p>
-          )}
         </aside>
 
         <div className="maint-activity-panel">
@@ -118,9 +118,7 @@ export function MaintenanceActivitiesPanel({ bridge }: Props) {
                 <option value="repair">{MAINTENANCE_CATEGORY_LABEL.repair}</option>
               </select>
             </label>
-            <span className="muted">
-              Price/unit column reserved for inspection selection
-            </span>
+            <span className="muted">Prices editable · saved in this browser</span>
           </div>
 
           <div className="model-dim-table-wrap maint-activity-table-wrap">
@@ -131,21 +129,36 @@ export function MaintenanceActivitiesPanel({ bridge }: Props) {
                   <th>Activity</th>
                   <th>Unit</th>
                   <th>Category</th>
-                  <th>Price / unit</th>
+                  <th>Price / unit (NZD)</th>
                 </tr>
               </thead>
               <tbody>
-                {activities.map((a) => (
-                  <tr key={a.code}>
-                    <td>{a.code}</td>
-                    <td>{a.description}</td>
-                    <td>{a.unit}</td>
-                    <td>{MAINTENANCE_CATEGORY_LABEL[a.category].split(' (')[0]}</td>
-                    <td className="price-pending">
-                      {a.unitPrice != null ? `$${a.unitPrice}` : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {activities.map((a) => {
+                  const price = unitPriceForActivity(a.code, a.unitPrice)
+                  return (
+                    <tr key={a.code}>
+                      <td>{a.code}</td>
+                      <td>{a.description}</td>
+                      <td>{a.unit}</td>
+                      <td>{MAINTENANCE_CATEGORY_LABEL[a.category].split(' (')[0]}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min={0}
+                          step="1"
+                          className="price-input"
+                          value={price}
+                          title={formatMoney(price)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            saveActivityPriceOverride(a.code, Number.isFinite(v) ? v : 0)
+                            setPriceTick((t) => t + 1)
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
                 {activities.length === 0 && (
                   <tr>
                     <td colSpan={5} className="dim-na">

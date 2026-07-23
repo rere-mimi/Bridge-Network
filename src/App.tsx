@@ -14,9 +14,21 @@ import {
 import { findSceneNode, buildSceneNodes } from './data/sceneLayout'
 import { MiniMap } from './components/MiniMap'
 import { ModulePages, resolveActivePage } from './components/ModulePages'
+import { InspectionActivityPicker } from './components/InspectionActivityPicker'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
-import type { BridgeAsset, BridgeElement, DrawnDefect, Filters, PlatformModule, SidebarId } from './types'
+import { applyRecommendationsToStructure } from './data/recommendations'
+import { stampDefectConditionStates } from './data/conditionState'
+import { formatMoney } from './data/activityPricing'
+import type {
+  BridgeAsset,
+  BridgeElement,
+  DrawnDefect,
+  Filters,
+  MaintenanceRecommendation,
+  PlatformModule,
+  SidebarId,
+} from './types'
 import './App.css'
 import { openCrossSectionWindow } from './components/CrossSectionApp'
 
@@ -58,6 +70,9 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'3d' | 'section' | 'map' | 'drawings'>('3d')
   const [selectedPanel, setSelectedPanel] = useState<string | null>('viewer')
   const [drawnDefects, setDrawnDefects] = useState<DrawnDefect[]>([])
+  const [draftRecommendations, setDraftRecommendations] = useState<MaintenanceRecommendation[]>(
+    [],
+  )
   const [isolate, setIsolate] = useState(false)
   const [viewerHeight, setViewerHeight] = useState(() => {
     if (typeof window === 'undefined') return 420
@@ -84,7 +99,8 @@ export default function App() {
   const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? structures[0]
 
   useEffect(() => {
-    setDrawnDefects([])
+    setDrawnDefects(bridge?.drawnDefects ?? [])
+    setDraftRecommendations(bridge?.recommendations ?? [])
     setSelectedElement(null)
     setIsolate(false)
   }, [bridge?.id])
@@ -144,6 +160,42 @@ export default function App() {
     setEditingId(id)
     setModule('create-model')
     setSidebar('home')
+  }
+
+  function handleUpdateRecommendations(
+    bridgeId: string,
+    recommendations: MaintenanceRecommendation[],
+  ) {
+    const target = structures.find((s) => s.id === bridgeId)
+    if (!target) return
+    const updated = { ...target, recommendations, source: 'user' as const }
+    const next = saveUserStructure(updated)
+    setStructures(next)
+    if (bridgeId === bridge?.id) setDraftRecommendations(recommendations)
+  }
+
+  async function handleSaveInspection() {
+    if (!bridge) return
+    let defects = drawnDefects
+    const touchedIds = new Set(defects.map((d) => d.elementId).filter(Boolean) as string[])
+    for (const el of bridge.elements) {
+      if (!touchedIds.has(el.id)) continue
+      const node = findSceneNode(buildSceneNodes(bridge), el.id)
+      defects = stampDefectConditionStates(defects, el, node?.sizeM)
+    }
+    const updated = applyRecommendationsToStructure(bridge, draftRecommendations, defects, {
+      inspectionSummary: `Inspection saved · ${draftRecommendations.filter((r) => r.status === 'proposed').length} proposed · est. ${formatMoney(
+        draftRecommendations
+          .filter((r) => r.status === 'proposed' || r.status === 'approved')
+          .reduce((s, r) => s + r.totalCost, 0),
+      )}`,
+    })
+    const withHazard = await enrichStructureWithNshm(updated)
+    const next = saveUserStructure(withHazard)
+    const enriched = await enrichStructuresWithNshm(next)
+    setStructures(enriched)
+    setDrawnDefects(withHazard.drawnDefects ?? [])
+    setDraftRecommendations(withHazard.recommendations ?? [])
   }
 
   function handleOpenCreateModel() {
@@ -314,6 +366,7 @@ export default function App() {
             onDeleteUserStructure={handleDelete}
             onExportDatabase={handleExport}
             onImportMapBridge={handleImportMapBridge}
+            onUpdateRecommendations={handleUpdateRecommendations}
           />
         ) : (
           <>
@@ -677,11 +730,40 @@ export default function App() {
                           {materialLabel && <li>Material catalogue · {materialLabel}</li>}
                         </ul>
                         <p className="page-note subtle">
-                          Condition state from severity × extent will use this extent once the
-                          uploaded algorithm is wired in.
+                          Provisional condition state (CS 1–4) is estimated from extent until the
+                          official severity × extent algorithm is uploaded.
                         </p>
                       </div>
                     )}
+                    <InspectionActivityPicker
+                      bridge={{ ...bridge, drawnDefects, recommendations: draftRecommendations }}
+                      element={activeElement?.element ?? null}
+                      recommendations={draftRecommendations}
+                      drawnDefectCount={pinnedDrawn.length}
+                      sizeM={
+                        activeElement
+                          ? findSceneNode(sceneNodes, activeElement.element.id)?.sizeM
+                          : null
+                      }
+                      onChange={setDraftRecommendations}
+                    />
+                    <div className="insp-save-row">
+                      <button
+                        type="button"
+                        className="page-btn primary"
+                        onClick={() => void handleSaveInspection()}
+                      >
+                        Save inspection
+                      </button>
+                      <span className="muted">
+                        {draftRecommendations.length} activities ·{' '}
+                        {formatMoney(
+                          draftRecommendations
+                            .filter((r) => r.status === 'proposed' || r.status === 'approved')
+                            .reduce((s, r) => s + r.totalCost, 0),
+                        )}
+                      </span>
+                    </div>
                     {pinnedDrawn.length > 0 && (
                       <>
                         <p className="section-label">Pinned drawn defects</p>

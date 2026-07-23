@@ -2315,6 +2315,166 @@ p {
   }
 }
 
+.maint-activity-table .price-input {
+  width: 5.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0b1220;
+  color: var(--text);
+  padding: 0.28rem 0.35rem;
+  font: inherit;
+}
+
+.insp-activity-picker {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.insp-activity-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.insp-cs-badge {
+  display: grid;
+  gap: 0.1rem;
+  text-align: right;
+  font-size: 0.78rem;
+}
+
+.insp-cs-badge em {
+  font-style: normal;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.insp-cs-badge small {
+  color: var(--muted);
+}
+
+.insp-activity-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.insp-activity-qty-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.insp-activity-list ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.insp-activity-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #0f172a;
+}
+
+.insp-activity-list strong {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.insp-activity-list em {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.insp-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.insp-save-row .page-btn.primary {
+  margin: 0;
+}
+
+.maint-worklist {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.maint-worklist-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.maint-worklist-header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.maint-worklist-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.maint-worklist-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(6rem, 1fr));
+  gap: 0.45rem 1rem;
+  margin: 0;
+}
+
+.maint-worklist-kpis dt {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.maint-worklist-kpis dd {
+  margin: 0.1rem 0 0;
+  font-weight: 600;
+}
+
+.maint-worklist-table-wrap {
+  max-height: 360px;
+}
+
+.maint-worklist select {
+  background: #0f172a;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.2rem 0.35rem;
+  font: inherit;
+}
+
+@media (max-width: 800px) {
+  .insp-activity-qty-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .model-element-list {
   display: grid;
   gap: 0.45rem;

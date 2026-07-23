@@ -167,6 +167,8 @@ export function buildStructureFromDraft(
         : undefined,
     maintenanceForecast: previous?.maintenanceForecast ?? forecast(0.35),
     heatmap: heatFromElements(Math.max(1, draft.spans), elements),
+    recommendations: previous?.recommendations,
+    drawnDefects: previous?.drawnDefects,
   }
 }
 

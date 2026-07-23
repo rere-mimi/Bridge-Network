@@ -147,6 +147,35 @@ export type InspectionHistoryItem = {
   score: number
 }
 
+export type MaintenanceRecommendationStatus =
+  | 'proposed'
+  | 'approved'
+  | 'completed'
+  | 'deferred'
+
+/** Activity selected during inspection for an element (costed work item). */
+export type MaintenanceRecommendation = {
+  id: string
+  activityCode: number
+  activityDescription: string
+  unit: 'm²' | 'm' | 'each' | 'hour' | '—'
+  category: 'preventive' | 'routine' | 'repair' | 'major'
+  quantity: number
+  /** Unit price in NZD */
+  unitPrice: number
+  /** quantity × unitPrice */
+  totalCost: number
+  elementId: string
+  elementName: string
+  scheduleNo: number
+  groupId: string
+  status: MaintenanceRecommendationStatus
+  inspectionId?: string
+  notes?: string
+  createdAt: string
+  conditionState?: ConditionState
+}
+
 export type StructureKind = 'bridge' | 'culvert'
 export type StructureSource = 'seed' | 'user'
 
@@ -195,6 +224,10 @@ export type BridgeAsset = {
   photoLabel: string
   elements: BridgeElement[]
   defects: DefectRecord[]
+  /** Drawn inspection defects persisted with the structure */
+  drawnDefects?: DrawnDefect[]
+  /** Costed maintenance activities selected at inspection */
+  recommendations?: MaintenanceRecommendation[]
   inspections: InspectionHistoryItem[]
   documents: { drawings: number; reports: number; photos: number }
   riskBreakdown: {
