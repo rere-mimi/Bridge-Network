@@ -173,7 +173,7 @@ export function CrossSectionView({
   element,
   node,
   bridgeName,
-  bridgeId,
+  bridgeId: _bridgeId,
 }: CrossSectionViewProps) {
   const faces = node.faces
 
@@ -181,13 +181,10 @@ export function CrossSectionView({
     <div className="section-window">
       <header className="section-window-header">
         <div>
-          <p className="eyebrow">
-            Bridge {bridgeId} · 2D cross-section window
-          </p>
-          <h1>{element.id}</h1>
+          <p className="eyebrow">2D cross-section · {bridgeName}</p>
+          <h1>{element.name}</h1>
           <p>
-            {bridgeName} · {element.majorGroup} · {element.subgroup} · Code {element.code} ·{' '}
-            {element.name}
+            {element.majorGroup} · {element.subgroup} · Appendix C {element.code}
           </p>
         </div>
         <div className="section-window-dims">

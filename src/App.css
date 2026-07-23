@@ -542,6 +542,14 @@ p {
   letter-spacing: -0.03em;
 }
 
+.selected-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .status {
   padding: 0.3rem 0.65rem;
   border-radius: 999px;

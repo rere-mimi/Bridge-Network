@@ -387,7 +387,7 @@ export default function App() {
                     }}
                   >
                     <strong>
-                      {item.id} · {item.name}
+                      {item.name}
                     </strong>
                     <span>
                       {item.region} · {item.kind ?? 'bridge'} · CI {item.conditionIndex}
@@ -462,7 +462,8 @@ export default function App() {
               <div className="selected-heading">
                 <div>
                   <p className="eyebrow">
-                    Bridge ID {bridge.id} · {bridge.road} · {bridge.region}
+                    {bridge.road} · {bridge.region}
+                    {bridge.kind ? ` · ${bridge.kind}` : ''}
                   </p>
                   <h1>{bridge.name}</h1>
                 </div>
@@ -531,15 +532,15 @@ export default function App() {
               >
                 {activeElement && (
                   <div className="element-detail">
-                    <h3>{activeElement.element.id}</h3>
+                    <h3>{activeElement.element.name}</h3>
                     <p className="element-meta">
-                      Bridge {activeElement.element.bridgeId} · {activeElement.element.majorGroup} ·{' '}
-                      {activeElement.element.subgroup} · Code {activeElement.element.code} ·{' '}
-                      {activeElement.element.groupId}
+                      {activeElement.element.majorGroup} · {activeElement.element.subgroup}
                       {activeElement.element.material ? ` · (${activeElement.element.material})` : ''}
+                      {' · '}
+                      {activeElement.element.groupId}
                     </p>
                     <p className="element-meta">
-                      Appendix C · {activeElement.element.category} · {activeElement.element.name}
+                      Appendix C {activeElement.element.code} · {activeElement.element.category}
                     </p>
                     {activeElement.element.description && (
                       <>

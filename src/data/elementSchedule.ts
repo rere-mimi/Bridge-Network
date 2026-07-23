@@ -567,7 +567,7 @@ export function elementsForFamily(family: StructureFamily): StandardElement[] {
     family === 'arch-culvert'
   ) {
     const include = new Set<number>([
-      1, 2, 500, 502, 505,
+      1, 2, 500, 501, 502, 505,
       604, 605, 606, 607, 610,
     ])
     if (family === 'box-culvert') include.add(600)

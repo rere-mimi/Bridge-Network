@@ -1,5 +1,5 @@
 import { Canvas, useThree } from '@react-three/fiber'
-import { ContactShadows, Html, OrbitControls } from '@react-three/drei'
+import { ContactShadows, OrbitControls } from '@react-three/drei'
 import {
   useEffect,
   useMemo,
@@ -15,7 +15,9 @@ import { DefectDrawLayer } from './DefectDrawLayer'
 import {
   buildSceneNodes,
   findSceneNode,
+  nodeExtent,
   type SceneNode,
+  type ScenePart,
 } from '../data/sceneLayout'
 import type {
   BridgeAsset,
@@ -25,6 +27,17 @@ import type {
 } from '../types'
 
 type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
+
+const SCENE_WATER_LEN = 9.5
+
+function PartGeometry({ part }: { part: ScenePart }) {
+  if (part.shape === 'cylinder') {
+    const radius = Math.max(part.size[0], part.size[2]) * 0.5
+    const length = part.size[1]
+    return <cylinderGeometry args={[radius, radius, length, 28, 1, true]} />
+  }
+  return <boxGeometry args={part.size} />
+}
 
 function HighlightableMesh({
   selected,
@@ -67,9 +80,10 @@ function HighlightableMesh({
       <meshStandardMaterial
         color={selected ? '#dbeafe' : color}
         emissive={selected ? emissive : '#000000'}
-        emissiveIntensity={selected ? 0.85 : 0}
-        roughness={selected ? 0.35 : 0.7}
-        metalness={selected ? 0.25 : 0.1}
+        emissiveIntensity={selected ? 0.55 : 0}
+        roughness={selected ? 0.4 : 0.78}
+        metalness={selected ? 0.18 : 0.08}
+        side={THREE.DoubleSide}
         transparent={faded}
         opacity={faded ? 0.08 : 1}
       />
@@ -85,8 +99,8 @@ function CameraFocus({
   target: [number, number, number] | null
 }) {
   const { camera, controls } = useThree()
-  const defaultPos = useRef(new THREE.Vector3(5.5, 3.2, 6.5))
-  const defaultTarget = useRef(new THREE.Vector3(0, 0.8, 0))
+  const defaultPos = useRef(new THREE.Vector3(5.8, 3.4, 6.8))
+  const defaultTarget = useRef(new THREE.Vector3(0, 0.7, 0))
 
   useEffect(() => {
     const orbit = controls as unknown as {
@@ -100,7 +114,7 @@ function CameraFocus({
     if (isolate && target) {
       const pivot = new THREE.Vector3(...target)
       orbit.target.copy(pivot)
-      const offset = new THREE.Vector3(2.2, 1.5, 2.4)
+      const offset = new THREE.Vector3(2.4, 1.6, 2.6)
       camera.position.copy(pivot).add(offset)
       orbit.minDistance = 0.8
       orbit.maxDistance = 8
@@ -111,11 +125,47 @@ function CameraFocus({
     camera.position.copy(defaultPos.current)
     orbit.target.copy(defaultTarget.current)
     orbit.minDistance = 3
-    orbit.maxDistance = 16
+    orbit.maxDistance = 18
     orbit.update()
   }, [isolate, target, camera, controls])
 
   return null
+}
+
+function SceneNodeMesh({
+  node,
+  selected,
+  onSelect,
+}: {
+  node: SceneNode
+  selected: boolean
+  onSelect: () => void
+}) {
+  const [, sy] = nodeExtent(node)
+  return (
+    <group position={node.position}>
+      {node.parts.map((part, i) => (
+        <HighlightableMesh
+          key={`${node.element.id}-p${i}`}
+          selected={selected}
+          color={part.color ?? node.color}
+          position={part.position}
+          rotation={part.rotation}
+          onSelect={onSelect}
+        >
+          <PartGeometry part={part} />
+        </HighlightableMesh>
+      ))}
+      {selected && (
+        <pointLight
+          position={[0, sy * 0.45 + 0.35, 0.5]}
+          intensity={1.8}
+          distance={4}
+          color="#7dd3fc"
+        />
+      )}
+    </group>
+  )
 }
 
 function BridgeModel({
@@ -132,67 +182,46 @@ function BridgeModel({
   const nodes = useMemo(() => buildSceneNodes(bridge), [bridge])
   const selected = findSceneNode(nodes, selectedId)
   const hideOthers = isolate && !!selected
+  const culvert =
+    bridge.kind === 'culvert' ||
+    bridge.family?.includes('culvert') ||
+    bridge.elements.some((e) => e.scheduleNo >= 600 && e.scheduleNo < 650)
 
   return (
     <group>
       {!hideOthers && (
         <>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]} receiveShadow>
-            <planeGeometry args={[18, 10]} />
-            <meshStandardMaterial color="#1d4f63" roughness={0.35} metalness={0.2} />
+          {/* Ground / channel bed */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.42, 0]} receiveShadow>
+            <planeGeometry args={[22, 14]} />
+            <meshStandardMaterial color={culvert ? '#3d4f3a' : '#1d4f63'} roughness={0.85} />
           </mesh>
-          <mesh position={[-6.2, 0.05, 0]} castShadow>
-            <boxGeometry args={[3.5, 0.8, 8]} />
-            <meshStandardMaterial color="#3f4f46" />
-          </mesh>
-          <mesh position={[6.2, 0.05, 0]} castShadow>
-            <boxGeometry args={[3.5, 0.8, 8]} />
-            <meshStandardMaterial color="#3f4f46" />
-          </mesh>
+          {!culvert && (
+            <mesh position={[0, -0.28, 0]} receiveShadow>
+              <boxGeometry args={[SCENE_WATER_LEN, 0.2, 6]} />
+              <meshStandardMaterial color="#0f3a4d" roughness={0.35} metalness={0.15} />
+            </mesh>
+          )}
+          {culvert && (
+            // Stream channel through opening axis
+            <mesh position={[0, -0.2, 0]} receiveShadow>
+              <boxGeometry args={[3.2, 0.15, 8]} />
+              <meshStandardMaterial color="#1e4658" roughness={0.4} />
+            </mesh>
+          )}
         </>
       )}
 
       {nodes.map((node) => {
         const active = selectedId === node.element.id
         if (hideOthers && !active) return null
-        const [sx, sy, sz] = node.size
         return (
-          <group key={node.element.id} position={node.position}>
-            <HighlightableMesh
-              selected={active}
-              faded={false}
-              color={node.color}
-              onSelect={() => onSelect(node)}
-            >
-              {node.kind === 'marker' ? (
-                <sphereGeometry args={[Math.max(sx, sy, sz) * 0.55, 20, 20]} />
-              ) : (
-                <boxGeometry args={[sx, sy, sz]} />
-              )}
-            </HighlightableMesh>
-            {active && (
-              <>
-                <pointLight
-                  position={[0, sy * 0.9 + 0.4, 0.4]}
-                  intensity={2.2}
-                  distance={4}
-                  color="#7dd3fc"
-                />
-                <Html distanceFactor={7} position={[0, sy * 0.5 + 0.35, 0]} center>
-                  <button
-                    type="button"
-                    className="hotspot-label active"
-                    onClick={() => onSelect(node)}
-                  >
-                    <strong>{node.element.id}</strong>
-                    <span>
-                      {node.element.majorGroup} · {node.element.subgroup} · {node.element.band}
-                    </span>
-                  </button>
-                </Html>
-              </>
-            )}
-          </group>
+          <SceneNodeMesh
+            key={node.element.id}
+            node={node}
+            selected={active}
+            onSelect={() => onSelect(node)}
+          />
         )
       })}
     </group>
@@ -257,10 +286,9 @@ export function TwinViewer({
   function handleElementSelect(node: SceneNode) {
     onSelectElement({
       id: node.element.id,
-      label: node.element.id,
+      label: node.element.name,
       element: node.element,
     })
-    // keep isolate if already isolating a newly chosen element; otherwise clear
     if (!isolate) onIsolateChange(false)
   }
 
@@ -435,7 +463,7 @@ export function TwinViewer({
             </p>
             {isolate && selectedNode && (
               <div className="isolate-badge">
-                Isolated · {selectedNode.element.code} · {selectedNode.element.subgroup}
+                Isolated · {selectedNode.element.name}
               </div>
             )}
           </>
