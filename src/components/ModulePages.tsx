@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import type { BridgeAsset, PlatformModule, SidebarId } from '../types'
 import { conditionLabel } from '../data/bridges'
+import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
-import { MiniMap } from './MiniMap'
+import { NzNetworkMap } from './NzNetworkMap'
 import { ResizablePanel } from './ResizablePanel'
 
 type ModulePagesProps = {
@@ -20,6 +21,7 @@ type ModulePagesProps = {
   onSaved: (structure: BridgeAsset) => void
   onDeleteUserStructure: (id: string) => void
   onExportDatabase: () => void
+  onImportMapBridge: (bridge: NzMapBridge) => void
 }
 
 export function resolveActivePage(
@@ -51,6 +53,7 @@ export function ModulePages({
   onSaved,
   onDeleteUserStructure,
   onExportDatabase,
+  onImportMapBridge,
 }: ModulePagesProps) {
   const page = resolveActivePage(module, sidebar)
   const bridge = bridges.find((b) => b.id === selectedId) ?? bridges[0] ?? allBridges[0]
@@ -520,16 +523,15 @@ export function ModulePages({
       {page === 'maps' && (
         <PageShell
           title="Maps"
-          subtitle="Network map navigation and NZ NSHM seismic hazard."
+          subtitle="NZ bridge network in memory · Google Maps basemap · feed into BIS."
         >
-          <div className="maps-page-frame">
-            <MiniMap
-              bridges={bridges}
-              selectedId={selectedId}
-              onSelect={onSelectBridge}
-              compact={false}
-            />
-          </div>
+          <NzNetworkMap
+            inventory={allBridges}
+            selectedId={selectedId}
+            onSelectInventory={onSelectBridge}
+            onImportMapBridge={onImportMapBridge}
+            focusBridge={bridge}
+          />
           <div className="nshm-hazard-actions" style={{ marginTop: '0.75rem' }}>
             <button type="button" className="page-btn primary" onClick={onOpenOverview}>
               Open selected in twin
@@ -596,6 +598,10 @@ export function ModulePages({
               <span>
                 {allBridges.length} total · {userCount} user models stored in this browser
               </span>
+            </li>
+            <li>
+              <strong>NZ map catalogue</strong>
+              <span>Named bridges loaded into memory on Maps · Google basemap optional</span>
             </li>
             <li>
               <strong>Defect tools</strong>

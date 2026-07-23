@@ -3,6 +3,8 @@ import { enrichStructuresWithNshm, enrichStructureWithNshm, needsNshmEnrichment 
 import { conditionLabel } from './data/bridges'
 import { FACE_LABEL, MATERIAL_LABEL, normalizeMaterial } from './data/defectTypes'
 import { summarizeElementDefects } from './data/defectMetrics'
+import { structureFromMapBridge } from './data/mapBridgeImport'
+import type { NzMapBridge } from './data/nzBridgeCatalogue'
 import {
   deleteUserStructure,
   exportDatabaseJson,
@@ -156,6 +158,16 @@ export default function App() {
     if (selectedId === id) setSelectedId(next[0]?.id ?? '10001')
   }
 
+  function handleImportMapBridge(mapBridge: NzMapBridge) {
+    const existing = structures.map((s) => s.id)
+    const created = structureFromMapBridge(mapBridge, existing)
+    const next = saveUserStructure(created)
+    setStructures(next)
+    setSelectedId(created.id)
+    setModule('overview')
+    setSidebar('home')
+  }
+
   function handleExport() {
     const blob = new Blob([exportDatabaseJson(structures)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -301,6 +313,7 @@ export default function App() {
             onSaved={handleSaved}
             onDeleteUserStructure={handleDelete}
             onExportDatabase={handleExport}
+            onImportMapBridge={handleImportMapBridge}
           />
         ) : (
           <>

@@ -1607,6 +1607,91 @@ p {
   border-radius: 0;
 }
 
+.nz-network-map {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.nz-map-toolbar,
+.nz-map-key-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nz-map-search {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.nz-map-google-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.nz-map-stage {
+  height: min(58vh, 540px);
+  min-height: 340px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0b1220;
+}
+
+.nz-leaflet-host,
+.nz-google-host,
+.nz-google-host-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.nz-map-footer {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.nz-map-footer > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.nz-map-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 90%, #0ea5e9 10%);
+}
+
+.nz-map-selected strong {
+  display: block;
+}
+
+.nz-map-selected span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.nz-map-hits {
+  max-height: 220px;
+  overflow: auto;
+}
+
 .settings-list {
   display: grid;
   gap: 0.65rem;
