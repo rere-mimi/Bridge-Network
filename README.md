@@ -1,45 +1,20 @@
-# Bridge Network — Live BIS Platform
+# Bridge Asset Digital Twin
 
-Interactive Bridge Information System (BIS) for New Zealand bridge assets.
+Live Bridge Information System with a digital-twin workspace for NZ bridge assets.
 
-## Purpose
+## Layout
 
-**Short term:** integrate bridge inventory, inspection records, condition data, risk models, and digital twin visualisation.
-
-**Longer term:** with sufficient data, support lifecycle forecasting, maintenance planning, and unified operational + strategic decision-making.
-
-## Modules
-
-| Module | Role |
-| --- | --- |
-| Live map | Network overview with risk-coloured bridge markers |
-| Inventory | Structures, ownership, geometry, coded elements |
-| Inspection | Full 7-step BIS inspection workflow |
-| Condition | Condition States 1–4 by element |
-| Risk models | Composite risk factors and ranking |
-| Digital twin | Structure visualisation linked to element inventory |
-| Lifecycle & planning | Longer-term forecasting / programme (data-gated) |
-
-## Inspection process (7 steps)
-
-1. Divide the bridge into coded elements
-2. Calculate the total quantity of each element
-3. Enter the element data into BIS
-4. Inspect each element and complete the report:
-   - A. Environment Category (Low / Moderate / Severe)
-   - B. Quantity or % in each Condition State (1–4)
-   - C. Verify quantities / percentages total correctly
-   - D. Record maintenance actions (activity number + description)
-   - E. Record inspector comments
-5. Submit to the Bridge Maintenance Planner (BMP)
-6. Enter the inspection data into BIS
-7. Generate required bridge inspection reports from BIS
+- Left icon sidebar for quick modules
+- Corner **network map** + filters to navigate assets
+- Main **3D model** of the selected structure with condition hotspots
+- Right panel for inspection photo, element details, defects, documents
+- Bottom analytics: condition heat map, risk dashboard, maintenance forecast, history, location
 
 ## Run on GitHub
 
-1. Merge to `main`
-2. Repo **Settings → Pages → Source → GitHub Actions**
-3. Open **https://rere-mimi.github.io/Bridge-Network/**
+https://rere-mimi.github.io/Bridge-Network/
+
+Hard refresh after deploy: `Ctrl+F5` (Windows) or `Cmd+Shift+R` (Mac).
 
 ## Local
 
@@ -50,4 +25,4 @@ npm run dev
 
 ## Stack
 
-React 19 · TypeScript · Vite · Leaflet / react-leaflet
+React 19 · TypeScript · Vite · Leaflet · Three.js / React Three Fiber

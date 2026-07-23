@@ -1,85 +1,528 @@
-import { AppShell } from './components/AppShell'
-import { ConditionView } from './components/ConditionView'
-import { DigitalTwinView } from './components/DigitalTwinView'
-import { InspectionView } from './components/InspectionView'
-import { InventoryView } from './components/InventoryView'
-import { OverviewView } from './components/OverviewView'
-import { PlanningView } from './components/PlanningView'
-import { RiskView } from './components/RiskView'
-import { useBridgePlatform } from './hooks/useBridgePlatform'
+import { useMemo, useState } from 'react'
+import { BRIDGES, conditionLabel } from './data/bridges'
+import { MiniMap } from './components/MiniMap'
+import { TwinViewer } from './components/TwinViewer'
+import type { BridgeElement, Filters, PlatformModule, SidebarId } from './types'
 import './App.css'
 
+const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'assets', label: 'Assets' },
+  { id: 'inspections', label: 'Inspections' },
+  { id: 'condition', label: 'Condition' },
+  { id: 'risk', label: 'Risk' },
+  { id: 'maintenance', label: 'Maintenance' },
+  { id: 'costs', label: 'Costs' },
+  { id: 'reports', label: 'Reports' },
+]
+
+const SIDEBAR: Array<{ id: SidebarId; label: string; icon: string }> = [
+  { id: 'home', label: 'Home', icon: '⌂' },
+  { id: 'assets', label: 'Assets', icon: '▦' },
+  { id: 'analytics', label: 'Analytics', icon: '◔' },
+  { id: 'maps', label: 'Maps', icon: '◎' },
+  { id: 'alerts', label: 'Alerts', icon: '⚠' },
+  { id: 'settings', label: 'Settings', icon: '⚙' },
+]
+
+const EMPTY_FILTERS: Filters = {
+  region: 'all',
+  structureType: 'all',
+  condition: 'all',
+  risk: 'all',
+}
+
 export default function App() {
-  const platform = useBridgePlatform()
+  const [module, setModule] = useState<PlatformModule>('overview')
+  const [sidebar, setSidebar] = useState<SidebarId>('home')
+  const [selectedId, setSelectedId] = useState(BRIDGES[0].id)
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [viewMode, setViewMode] = useState<'3d' | 'map' | 'drawings'>('3d')
+  const [selectedElement, setSelectedElement] = useState<{
+    id: string
+    label: string
+    element: BridgeElement
+  } | null>(null)
+
+  const filtered = useMemo(() => {
+    return BRIDGES.filter((b) => {
+      if (filters.region !== 'all' && b.region !== filters.region) return false
+      if (filters.structureType !== 'all' && b.structureType !== filters.structureType)
+        return false
+      if (filters.condition !== 'all' && b.conditionBand !== filters.condition) return false
+      if (filters.risk !== 'all' && b.riskLevel !== filters.risk) return false
+      return true
+    })
+  }, [filters])
+
+  const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? BRIDGES[0]
+
+  const regions = [...new Set(BRIDGES.map((b) => b.region))]
+  const types = [...new Set(BRIDGES.map((b) => b.structureType))]
+
+  const activeElement =
+    selectedElement ??
+    (bridge.elements[1]
+      ? {
+          id: 'default-el',
+          label: bridge.elements[1].name,
+          element: bridge.elements[1],
+        }
+      : null)
+
+  const elementDefects = bridge.defects.filter(
+    (d) => !activeElement || d.elementCode === activeElement.element.code || d.elementName.includes(activeElement.label.split(' ')[0]),
+  )
 
   return (
-    <AppShell
-      view={platform.view}
-      onViewChange={platform.setView}
-      clock={platform.clock}
-      metrics={platform.metrics}
-    >
-      {platform.view === 'overview' && (
-        <OverviewView
-          bridges={platform.bridges}
-          selectedId={platform.selectedId}
-          selectedBridge={platform.selectedBridge}
-          events={platform.events}
-          onSelect={platform.selectBridge}
-          onInspect={platform.startInspection}
-          onOpenInventory={() => platform.setView('inventory')}
-        />
-      )}
+    <div className="twin-app">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-mark" aria-hidden="true">
+            ⌁
+          </div>
+          <div>
+            <p className="brand-title">Bridge Asset Digital Twin</p>
+            <p className="brand-sub">Live BIS · inventory · inspection · risk</p>
+          </div>
+        </div>
 
-      {platform.view === 'inventory' && (
-        <InventoryView
-          bridges={platform.bridges}
-          selectedId={platform.selectedId}
-          onSelect={platform.selectBridge}
-          onInspect={platform.startInspection}
-        />
-      )}
+        <nav className="top-nav" aria-label="Primary">
+          {TOP_NAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={module === item.id ? 'active' : ''}
+              onClick={() => setModule(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-      {platform.view === 'inspection' && (
-        <InspectionView
-          bridges={platform.bridges}
-          inspections={platform.inspections}
-          activeInspection={platform.activeInspection}
-          onSelectInspection={platform.setActiveInspectionId}
-          onPhaseChange={platform.setInspectionPhase}
-          onUpdateElement={platform.updateElementInspection}
-          onBmpComments={platform.updateBmpComments}
-          onComplete={platform.completeInspection}
-          onStart={platform.startInspection}
-        />
-      )}
+        <div className="top-utils" aria-label="Utilities">
+          <button type="button" title="Notifications">
+            🔔
+          </button>
+          <button type="button" title="Help">
+            ?
+          </button>
+          <button type="button" title="Settings">
+            ⚙
+          </button>
+          <div className="avatar">BN</div>
+        </div>
+      </header>
 
-      {platform.view === 'condition' && (
-        <ConditionView
-          bridges={platform.bridges}
-          inspections={platform.inspections}
-          selectedId={platform.selectedId}
-          onSelect={platform.selectBridge}
-        />
-      )}
+      <div className="shell">
+        <aside className="icon-rail" aria-label="Shortcut sidebar">
+          {SIDEBAR.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={sidebar === item.id ? 'active' : ''}
+              title={item.label}
+              onClick={() => setSidebar(item.id)}
+            >
+              <span>{item.icon}</span>
+            </button>
+          ))}
+        </aside>
 
-      {platform.view === 'risk' && (
-        <RiskView
-          bridges={platform.bridges}
-          selectedId={platform.selectedId}
-          onSelect={platform.selectBridge}
-        />
-      )}
+        <aside className="left-panel">
+          <section className="panel-block">
+            <header>
+              <h2>Network map</h2>
+              <span>{filtered.length} assets</span>
+            </header>
+            <MiniMap
+              bridges={filtered}
+              selectedId={bridge.id}
+              onSelect={(id) => {
+                setSelectedId(id)
+                setSelectedElement(null)
+              }}
+            />
+          </section>
 
-      {platform.view === 'twin' && (
-        <DigitalTwinView
-          bridge={platform.selectedBridge}
-          bridges={platform.bridges}
-          onSelect={platform.selectBridge}
-        />
-      )}
+          <section className="panel-block filters">
+            <header>
+              <h2>Asset filters</h2>
+            </header>
 
-      {platform.view === 'planning' && <PlanningView bridges={platform.bridges} />}
-    </AppShell>
+            <label>
+              Region
+              <select
+                value={filters.region}
+                onChange={(e) => setFilters((f) => ({ ...f, region: e.target.value }))}
+              >
+                <option value="all">All regions</option>
+                {regions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Structure type
+              <select
+                value={filters.structureType}
+                onChange={(e) =>
+                  setFilters((f) => ({ ...f, structureType: e.target.value }))
+                }
+              >
+                <option value="all">All types</option>
+                {types.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Condition
+              <select
+                value={filters.condition}
+                onChange={(e) => setFilters((f) => ({ ...f, condition: e.target.value }))}
+              >
+                <option value="all">All</option>
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+
+            <label>
+              Risk
+              <select
+                value={filters.risk}
+                onChange={(e) => setFilters((f) => ({ ...f, risk: e.target.value }))}
+              >
+                <option value="all">All</option>
+                <option value="low">Low</option>
+                <option value="moderate">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="reset-btn"
+              onClick={() => setFilters(EMPTY_FILTERS)}
+            >
+              Reset filters
+            </button>
+          </section>
+
+          <section className="panel-block asset-list">
+            <header>
+              <h2>Structures</h2>
+            </header>
+            <ul>
+              {filtered.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={item.id === bridge.id ? 'active' : ''}
+                    onClick={() => {
+                      setSelectedId(item.id)
+                      setSelectedElement(null)
+                    }}
+                  >
+                    <strong>{item.name}</strong>
+                    <span>
+                      {item.region} · CI {item.conditionIndex}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </aside>
+
+        <main className="main-stage">
+          <section className="kpi-row">
+            <article className="kpi wide">
+              <p>Overall condition</p>
+              <div className="kpi-main">
+                <strong>
+                  {bridge.conditionIndex}
+                  <em>/100</em>
+                </strong>
+                <span className={`pill band-${bridge.conditionBand}`}>
+                  {conditionLabel(bridge.conditionBand)}
+                </span>
+              </div>
+              <div className="spark">
+                {bridge.inspections
+                  .slice()
+                  .reverse()
+                  .map((ins) => (
+                    <i key={ins.id} style={{ height: `${ins.score}%` }} />
+                  ))}
+              </div>
+            </article>
+
+            <article className="kpi">
+              <p>Risk level</p>
+              <strong>
+                {bridge.riskLevel === 'moderate' ? 'MEDIUM' : bridge.riskLevel.toUpperCase()}{' '}
+                <em>{bridge.riskScore}/100</em>
+              </strong>
+            </article>
+
+            <article className="kpi">
+              <p>Next inspection</p>
+              <strong>
+                {new Date(bridge.nextInspectionDue).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </strong>
+            </article>
+
+            <article className="kpi">
+              <p>Remaining service life</p>
+              <strong>
+                {bridge.remainingLifeYears} <em>Years</em>
+              </strong>
+            </article>
+
+            <article className="kpi">
+              <p>Structure</p>
+              <strong className="small">
+                {bridge.structureType}
+                <em>Built {bridge.yearBuilt}</em>
+              </strong>
+            </article>
+          </section>
+
+          <div className="center-grid">
+            <div className="center-primary">
+              <div className="selected-heading">
+                <div>
+                  <p className="eyebrow">{bridge.road} · {bridge.region}</p>
+                  <h1>{bridge.name}</h1>
+                </div>
+                <span className={`status status-${bridge.status}`}>{bridge.status}</span>
+              </div>
+
+              <TwinViewer
+                bridge={bridge}
+                selectedElementId={selectedElement?.id ?? null}
+                onSelectElement={setSelectedElement}
+                viewMode={viewMode}
+                onViewMode={setViewMode}
+              />
+            </div>
+
+            <aside className="right-panel">
+              <section className="panel-block">
+                <header>
+                  <h2>Latest inspection photo</h2>
+                </header>
+                <div className="photo-card">
+                  <div className="photo-art" aria-hidden="true" />
+                  <p>{bridge.photoLabel}</p>
+                  <span>{bridge.lastInspection}</span>
+                </div>
+              </section>
+
+              <section className="panel-block">
+                <header>
+                  <h2>Element details</h2>
+                </header>
+                {activeElement && (
+                  <div className="element-detail">
+                    <h3>{activeElement.label}</h3>
+                    <div className="mini-kpis">
+                      <div>
+                        <span>Condition</span>
+                        <strong>{activeElement.element.conditionScore}</strong>
+                      </div>
+                      <div>
+                        <span>Risk</span>
+                        <strong>{activeElement.element.riskScore}</strong>
+                      </div>
+                    </div>
+                    <p className="section-label">Defects</p>
+                    <ul className="defect-list">
+                      {(elementDefects.length
+                        ? elementDefects
+                        : bridge.defects.slice(0, 3)
+                      ).map((defect) => (
+                        <li key={defect.id}>
+                          <span className={`sev sev-${defect.severity}`} />
+                          <div>
+                            <strong>{defect.title}</strong>
+                            <em>
+                              {defect.elementName} · {defect.severity}
+                            </em>
+                          </div>
+                        </li>
+                      ))}
+                      {bridge.defects.length === 0 && <li className="empty">No open defects</li>}
+                    </ul>
+                    <p className="section-label">Documents & records</p>
+                    <div className="doc-row">
+                      <span>{bridge.documents.drawings} drawings</span>
+                      <span>{bridge.documents.reports} reports</span>
+                      <span>{bridge.documents.photos} photos</span>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </aside>
+          </div>
+
+          <section className="bottom-grid">
+            <article className="panel-block">
+              <header>
+                <h2>Condition heat map</h2>
+              </header>
+              <div className="heat-table">
+                {bridge.heatmap.map((row) => (
+                  <div key={row.element} className="heat-row">
+                    <span>{row.element}</span>
+                    <div>
+                      {row.spans.map((band, idx) => (
+                        <i key={`${row.element}-${idx}`} className={`heat band-${band}`} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel-block">
+              <header>
+                <h2>Risk dashboard</h2>
+              </header>
+              <div className="risk-donut-wrap">
+                <div
+                  className="risk-donut"
+                  style={{
+                    background: `conic-gradient(
+                      #38bdf8 0 ${bridge.riskBreakdown.structural}%,
+                      #22d3ee ${bridge.riskBreakdown.structural}% ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic}%,
+                      #a78bfa ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic}% ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic + bridge.riskBreakdown.seismic}%,
+                      #f59e0b ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic + bridge.riskBreakdown.seismic}% ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic + bridge.riskBreakdown.seismic + bridge.riskBreakdown.traffic}%,
+                      #94a3b8 0
+                    )`,
+                  }}
+                >
+                  <div>
+                    <strong>{bridge.riskScore}</strong>
+                    <span>risk</span>
+                  </div>
+                </div>
+                <ul>
+                  <li>Structural {bridge.riskBreakdown.structural}%</li>
+                  <li>Hydraulic {bridge.riskBreakdown.hydraulic}%</li>
+                  <li>Seismic {bridge.riskBreakdown.seismic}%</li>
+                  <li>Traffic {bridge.riskBreakdown.traffic}%</li>
+                </ul>
+              </div>
+            </article>
+
+            <article className="panel-block">
+              <header>
+                <h2>Maintenance forecast</h2>
+              </header>
+              <div className="forecast-chart">
+                {bridge.maintenanceForecast.map((row) => {
+                  const max = Math.max(row.routine, row.rehab, row.replace, 0.1)
+                  return (
+                    <div key={row.year} className="forecast-col">
+                      <div className="bars">
+                        <i style={{ height: `${(row.routine / max) * 100}%` }} className="routine" />
+                        <i style={{ height: `${(row.rehab / max) * 100}%` }} className="rehab" />
+                        <i style={{ height: `${(row.replace / max) * 100}%` }} className="replace" />
+                      </div>
+                      <span>{row.year}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="chart-legend">
+                <span>Routine</span>
+                <span>Rehab</span>
+                <span>Replace</span>
+              </div>
+            </article>
+
+            <article className="panel-block">
+              <header>
+                <h2>Inspection history</h2>
+              </header>
+              <ul className="history-list">
+                {bridge.inspections.map((item) => (
+                  <li key={item.id}>
+                    <strong>{item.date}</strong>
+                    <span>{item.inspector}</span>
+                    <em>{item.summary}</em>
+                  </li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="panel-block">
+              <header>
+                <h2>Recent defects</h2>
+              </header>
+              <ul className="history-list">
+                {bridge.defects.length === 0 && <li className="empty">No recent defects</li>}
+                {bridge.defects.map((defect) => (
+                  <li key={defect.id}>
+                    <strong>{defect.title}</strong>
+                    <span>{defect.status}</span>
+                    <em>
+                      {defect.elementName} · {defect.date}
+                    </em>
+                  </li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="panel-block">
+              <header>
+                <h2>Location & context</h2>
+              </header>
+              <MiniMap
+                bridges={[bridge]}
+                selectedId={bridge.id}
+                onSelect={setSelectedId}
+                compact={false}
+              />
+              <div className="location-meta">
+                <span>
+                  {bridge.lat.toFixed(5)}, {bridge.lng.toFixed(5)}
+                </span>
+                <span>
+                  {bridge.road} · {bridge.city}
+                </span>
+              </div>
+            </article>
+          </section>
+
+          {module !== 'overview' && (
+            <section className="module-note">
+              <strong>{TOP_NAV.find((n) => n.id === module)?.label}</strong>
+              <span>
+                Module focused on {bridge.name}. Use Overview for the full digital twin
+                workspace.
+              </span>
+            </section>
+          )}
+        </main>
+      </div>
+    </div>
   )
 }

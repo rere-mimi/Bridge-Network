@@ -1,40 +1,163 @@
-import type {
-  BridgeAsset,
-  BridgeElement,
-  ElementInspection,
-  EnvironmentCategory,
-} from '../types'
+import type { BridgeAsset, BridgeElement, ConditionBand } from '../types'
 
-export const ELEMENT_CATALOGUE: BridgeElement[] = [
-  { code: 'DEC', name: 'Deck', unit: 'm²', totalQuantity: 0 },
-  { code: 'SUP', name: 'Superstructure', unit: 'm', totalQuantity: 0 },
-  { code: 'ABT', name: 'Abutment', unit: 'each', totalQuantity: 0 },
-  { code: 'PIE', name: 'Pier', unit: 'each', totalQuantity: 0 },
-  { code: 'BEA', name: 'Bearing', unit: 'each', totalQuantity: 0 },
-  { code: 'EXP', name: 'Expansion joint', unit: 'm', totalQuantity: 0 },
-  { code: 'RAI', name: 'Barrier / railing', unit: 'm', totalQuantity: 0 },
-  { code: 'FOU', name: 'Foundation', unit: 'm³', totalQuantity: 0 },
-]
+function bandFromScore(score: number): ConditionBand {
+  if (score >= 90) return 'excellent'
+  if (score >= 80) return 'good'
+  if (score >= 65) return 'fair'
+  if (score >= 50) return 'poor'
+  return 'critical'
+}
 
-const MAINTENANCE_LIBRARY: Array<{ activityNumber: string; description: string }> = [
-  { activityNumber: 'M-101', description: 'Clean and reseal expansion joints' },
-  { activityNumber: 'M-214', description: 'Patch spalled concrete and apply coating' },
-  { activityNumber: 'M-320', description: 'Replace deteriorated bearings' },
-  { activityNumber: 'M-405', description: 'Tighten / replace barrier fixings' },
-  { activityNumber: 'M-512', description: 'Scour protection / riprap reinstatement' },
-  { activityNumber: 'M-618', description: 'Repaint structural steel' },
-]
+function el(
+  code: string,
+  name: string,
+  unit: BridgeElement['unit'],
+  totalQuantity: number,
+  conditionScore: number,
+  riskScore: number,
+): BridgeElement {
+  return {
+    code,
+    name,
+    unit,
+    totalQuantity,
+    conditionScore,
+    riskScore,
+    band: bandFromScore(conditionScore),
+  }
+}
 
-function elementsFor(
-  specs: Array<Pick<BridgeElement, 'code' | 'totalQuantity'>>,
-): BridgeElement[] {
-  return specs.map((spec) => {
-    const base = ELEMENT_CATALOGUE.find((e) => e.code === spec.code)!
-    return { ...base, totalQuantity: spec.totalQuantity }
-  })
+function forecast(base = 0.4) {
+  return [2026, 2030, 2035, 2040, 2045, 2050].map((year, i) => ({
+    year,
+    routine: Number((base + i * 0.05).toFixed(2)),
+    rehab: Number((base * 0.8 + i * 0.18).toFixed(2)),
+    replace: Number((i > 3 ? base * 2 + i * 0.4 : 0.1 + i * 0.05).toFixed(2)),
+  }))
 }
 
 export const BRIDGES: BridgeAsset[] = [
+  {
+    id: 'br-ash',
+    name: 'Ashburton River Bridge',
+    road: 'SH1',
+    region: 'Canterbury',
+    city: 'Ashburton',
+    lat: -43.905,
+    lng: 171.748,
+    yearBuilt: 1998,
+    lengthM: 186,
+    spans: 5,
+    material: 'Concrete',
+    structureType: 'Concrete Multi-span',
+    owner: 'NZ Transport Agency',
+    status: 'watch',
+    lastInspection: '2026-02-12',
+    nextInspectionDue: '2027-02-12',
+    conditionIndex: 72,
+    conditionBand: 'fair',
+    riskLevel: 'moderate',
+    riskScore: 68,
+    remainingLifeYears: 38,
+    photoLabel: 'Pier / soffit inspection',
+    elements: [
+      el('DEC', 'Deck', 'm²', 2400, 78, 42),
+      el('GIR', 'Girders', 'm', 930, 64, 71),
+      el('PIE', 'Piers', 'each', 4, 58, 76),
+      el('BEA', 'Bearings', 'each', 40, 70, 55),
+      el('ABT', 'Abutments', 'each', 2, 81, 38),
+      el('EXP', 'Expansion joints', 'm', 36, 66, 60),
+      el('RAI', 'Barriers', 'm', 372, 84, 28),
+    ],
+    defects: [
+      {
+        id: 'd1',
+        elementCode: 'GIR',
+        elementName: 'Girder G4',
+        title: 'Spalling',
+        severity: 'high',
+        status: 'open',
+        date: '2026-02-12',
+      },
+      {
+        id: 'd2',
+        elementCode: 'GIR',
+        elementName: 'Girder G4',
+        title: 'Rust staining',
+        severity: 'medium',
+        status: 'monitoring',
+        date: '2026-02-12',
+      },
+      {
+        id: 'd3',
+        elementCode: 'GIR',
+        elementName: 'Girder G4',
+        title: 'Longitudinal crack',
+        severity: 'medium',
+        status: 'open',
+        date: '2026-02-12',
+      },
+      {
+        id: 'd4',
+        elementCode: 'PIE',
+        elementName: 'Pier 2',
+        title: 'Surface deterioration',
+        severity: 'high',
+        status: 'planned',
+        date: '2026-02-12',
+      },
+    ],
+    inspections: [
+      {
+        id: 'i1',
+        date: '2026-02-12',
+        inspector: 'A. Ngata',
+        summary: 'Pier 2 and Girder G4 flagged for works',
+        score: 72,
+      },
+      {
+        id: 'i2',
+        date: '2025-02-08',
+        inspector: 'R. Lawson',
+        summary: 'Routine inspection — joints resealed',
+        score: 76,
+      },
+      {
+        id: 'i3',
+        date: '2024-01-30',
+        inspector: 'S. Patel',
+        summary: 'No critical defects recorded',
+        score: 79,
+      },
+    ],
+    documents: { drawings: 14, reports: 9, photos: 46 },
+    riskBreakdown: {
+      structural: 34,
+      hydraulic: 22,
+      seismic: 18,
+      traffic: 16,
+      other: 10,
+    },
+    maintenanceForecast: forecast(0.55),
+    heatmap: [
+      {
+        element: 'Deck',
+        spans: ['good', 'good', 'fair', 'good', 'good'],
+      },
+      {
+        element: 'Girders',
+        spans: ['fair', 'poor', 'fair', 'good', 'fair'],
+      },
+      {
+        element: 'Piers',
+        spans: ['good', 'poor', 'fair', 'good', 'good'],
+      },
+      {
+        element: 'Bearings',
+        spans: ['fair', 'fair', 'good', 'fair', 'good'],
+      },
+    ],
+  },
   {
     id: 'br-ahb',
     name: 'Auckland Harbour Bridge',
@@ -46,24 +169,65 @@ export const BRIDGES: BridgeAsset[] = [
     yearBuilt: 1959,
     lengthM: 1020,
     spans: 8,
-    material: 'Steel box girder',
+    material: 'Steel',
+    structureType: 'Steel Box Girder',
     owner: 'NZ Transport Agency',
     status: 'operational',
     lastInspection: '2026-03-12',
     nextInspectionDue: '2026-09-12',
     conditionIndex: 82,
+    conditionBand: 'good',
     riskLevel: 'moderate',
     riskScore: 48,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 18400 },
-      { code: 'SUP', totalQuantity: 1020 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 7 },
-      { code: 'BEA', totalQuantity: 64 },
-      { code: 'EXP', totalQuantity: 96 },
-      { code: 'RAI', totalQuantity: 2040 },
-      { code: 'FOU', totalQuantity: 3200 },
-    ]),
+    remainingLifeYears: 45,
+    photoLabel: 'Clip-on span overview',
+    elements: [
+      el('DEC', 'Deck', 'm²', 18400, 84, 35),
+      el('SUP', 'Superstructure', 'm', 1020, 80, 44),
+      el('PIE', 'Piers', 'each', 7, 78, 50),
+      el('BEA', 'Bearings', 'each', 64, 74, 52),
+      el('ABT', 'Abutments', 'each', 2, 88, 30),
+      el('RAI', 'Barriers', 'm', 2040, 90, 22),
+    ],
+    defects: [
+      {
+        id: 'd5',
+        elementCode: 'BEA',
+        elementName: 'Bearing B12',
+        title: 'Movement restriction',
+        severity: 'medium',
+        status: 'monitoring',
+        date: '2026-03-12',
+      },
+    ],
+    inspections: [
+      {
+        id: 'i4',
+        date: '2026-03-12',
+        inspector: 'K. Rangi',
+        summary: 'Network critical asset — routine clear',
+        score: 82,
+      },
+    ],
+    documents: { drawings: 38, reports: 22, photos: 120 },
+    riskBreakdown: {
+      structural: 28,
+      hydraulic: 12,
+      seismic: 30,
+      traffic: 22,
+      other: 8,
+    },
+    maintenanceForecast: forecast(1.2),
+    heatmap: [
+      {
+        element: 'Deck',
+        spans: ['good', 'good', 'good', 'fair', 'good', 'good', 'good', 'good'],
+      },
+      {
+        element: 'Piers',
+        spans: ['good', 'fair', 'good', 'good', 'fair', 'good', 'good', 'good'],
+      },
+    ],
   },
   {
     id: 'br-gra',
@@ -76,23 +240,58 @@ export const BRIDGES: BridgeAsset[] = [
     yearBuilt: 1910,
     lengthM: 97.6,
     spans: 1,
-    material: 'Reinforced concrete arch',
+    material: 'Concrete',
+    structureType: 'Concrete Arch',
     owner: 'Auckland Transport',
     status: 'watch',
     lastInspection: '2026-01-20',
     nextInspectionDue: '2026-07-20',
     conditionIndex: 71,
+    conditionBand: 'fair',
     riskLevel: 'high',
     riskScore: 67,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 980 },
-      { code: 'SUP', totalQuantity: 98 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'BEA', totalQuantity: 8 },
-      { code: 'EXP', totalQuantity: 12 },
-      { code: 'RAI', totalQuantity: 210 },
-      { code: 'FOU', totalQuantity: 420 },
-    ]),
+    remainingLifeYears: 28,
+    photoLabel: 'Arch soffit close-up',
+    elements: [
+      el('DEC', 'Deck', 'm²', 980, 74, 48),
+      el('SUP', 'Arch', 'm', 98, 68, 70),
+      el('ABT', 'Abutments', 'each', 2, 72, 55),
+      el('RAI', 'Barriers', 'm', 210, 80, 32),
+    ],
+    defects: [
+      {
+        id: 'd6',
+        elementCode: 'SUP',
+        elementName: 'Arch ring',
+        title: 'Moisture ingress',
+        severity: 'high',
+        status: 'open',
+        date: '2026-01-20',
+      },
+    ],
+    inspections: [
+      {
+        id: 'i5',
+        date: '2026-01-20',
+        inspector: 'S. Patel',
+        summary: 'Heritage constraints on repair methods',
+        score: 71,
+      },
+    ],
+    documents: { drawings: 11, reports: 7, photos: 33 },
+    riskBreakdown: {
+      structural: 40,
+      hydraulic: 8,
+      seismic: 26,
+      traffic: 18,
+      other: 8,
+    },
+    maintenanceForecast: forecast(0.35),
+    heatmap: [
+      { element: 'Deck', spans: ['fair'] },
+      { element: 'Arch', spans: ['poor'] },
+      { element: 'Abutments', spans: ['fair'] },
+    ],
   },
   {
     id: 'br-tau',
@@ -105,54 +304,53 @@ export const BRIDGES: BridgeAsset[] = [
     yearBuilt: 1988,
     lengthM: 465,
     spans: 11,
-    material: 'Prestressed concrete',
+    material: 'Concrete',
+    structureType: 'Prestressed Concrete',
     owner: 'NZ Transport Agency',
     status: 'operational',
     lastInspection: '2026-02-04',
     nextInspectionDue: '2026-08-04',
     conditionIndex: 88,
+    conditionBand: 'good',
     riskLevel: 'low',
     riskScore: 28,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 6200 },
-      { code: 'SUP', totalQuantity: 465 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 10 },
-      { code: 'BEA', totalQuantity: 44 },
-      { code: 'EXP', totalQuantity: 48 },
-      { code: 'RAI', totalQuantity: 930 },
-      { code: 'FOU', totalQuantity: 1800 },
-    ]),
-  },
-  {
-    id: 'br-fai',
-    name: 'Fairfield Bridge',
-    road: 'Victoria St',
-    region: 'Waikato',
-    city: 'Hamilton',
-    lat: -37.781,
-    lng: 175.27,
-    yearBuilt: 1937,
-    lengthM: 139,
-    spans: 5,
-    material: 'Concrete arch',
-    owner: 'Hamilton City Council',
-    status: 'operational',
-    lastInspection: '2025-11-18',
-    nextInspectionDue: '2026-05-18',
-    conditionIndex: 76,
-    riskLevel: 'moderate',
-    riskScore: 52,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 1680 },
-      { code: 'SUP', totalQuantity: 139 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 4 },
-      { code: 'BEA', totalQuantity: 20 },
-      { code: 'EXP', totalQuantity: 18 },
-      { code: 'RAI', totalQuantity: 280 },
-      { code: 'FOU', totalQuantity: 640 },
-    ]),
+    remainingLifeYears: 52,
+    photoLabel: 'Marine span overview',
+    elements: [
+      el('DEC', 'Deck', 'm²', 6200, 90, 22),
+      el('SUP', 'Superstructure', 'm', 465, 86, 30),
+      el('PIE', 'Piers', 'each', 10, 84, 34),
+      el('BEA', 'Bearings', 'each', 44, 82, 36),
+    ],
+    defects: [],
+    inspections: [
+      {
+        id: 'i6',
+        date: '2026-02-04',
+        inspector: 'M. Chen',
+        summary: 'Asset performing within envelope',
+        score: 88,
+      },
+    ],
+    documents: { drawings: 20, reports: 12, photos: 58 },
+    riskBreakdown: {
+      structural: 18,
+      hydraulic: 30,
+      seismic: 20,
+      traffic: 22,
+      other: 10,
+    },
+    maintenanceForecast: forecast(0.7),
+    heatmap: [
+      {
+        element: 'Deck',
+        spans: ['excellent', 'good', 'good', 'good', 'good'],
+      },
+      {
+        element: 'Piers',
+        spans: ['good', 'good', 'fair', 'good', 'good'],
+      },
+    ],
   },
   {
     id: 'br-nga',
@@ -165,54 +363,58 @@ export const BRIDGES: BridgeAsset[] = [
     yearBuilt: 1969,
     lengthM: 210,
     spans: 4,
-    material: 'Steel / concrete composite',
+    material: 'Steel / Concrete',
+    structureType: 'Composite Girder',
     owner: 'NZ Transport Agency',
     status: 'watch',
     lastInspection: '2026-04-02',
     nextInspectionDue: '2026-10-02',
     conditionIndex: 69,
+    conditionBand: 'fair',
     riskLevel: 'high',
     riskScore: 71,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 3400 },
-      { code: 'SUP', totalQuantity: 210 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 3 },
-      { code: 'BEA', totalQuantity: 24 },
-      { code: 'EXP', totalQuantity: 28 },
-      { code: 'RAI', totalQuantity: 420 },
-      { code: 'FOU', totalQuantity: 900 },
-    ]),
-  },
-  {
-    id: 'br-rak',
-    name: 'Rakaia Bridge',
-    road: 'SH1',
-    region: 'Canterbury',
-    city: 'Rakaia',
-    lat: -43.748,
-    lng: 172.023,
-    yearBuilt: 1939,
-    lengthM: 1757,
-    spans: 38,
-    material: 'Steel truss / concrete',
-    owner: 'NZ Transport Agency',
-    status: 'operational',
-    lastInspection: '2025-12-09',
-    nextInspectionDue: '2026-06-09',
-    conditionIndex: 79,
-    riskLevel: 'moderate',
-    riskScore: 55,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 15800 },
-      { code: 'SUP', totalQuantity: 1757 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 37 },
-      { code: 'BEA', totalQuantity: 152 },
-      { code: 'EXP', totalQuantity: 120 },
-      { code: 'RAI', totalQuantity: 3514 },
-      { code: 'FOU', totalQuantity: 4100 },
-    ]),
+    remainingLifeYears: 31,
+    photoLabel: 'Gorge approach view',
+    elements: [
+      el('DEC', 'Deck', 'm²', 3400, 70, 58),
+      el('GIR', 'Girders', 'm', 840, 62, 74),
+      el('PIE', 'Piers', 'each', 3, 66, 68),
+      el('BEA', 'Bearings', 'each', 24, 60, 72),
+    ],
+    defects: [
+      {
+        id: 'd7',
+        elementCode: 'BEA',
+        elementName: 'Bearing line A',
+        title: 'Corrosion',
+        severity: 'high',
+        status: 'planned',
+        date: '2026-04-02',
+      },
+    ],
+    inspections: [
+      {
+        id: 'i7',
+        date: '2026-04-02',
+        inspector: 'A. Ngata',
+        summary: 'Bearing replacement candidate',
+        score: 69,
+      },
+    ],
+    documents: { drawings: 16, reports: 10, photos: 41 },
+    riskBreakdown: {
+      structural: 36,
+      hydraulic: 10,
+      seismic: 32,
+      traffic: 14,
+      other: 8,
+    },
+    maintenanceForecast: forecast(0.6),
+    heatmap: [
+      { element: 'Deck', spans: ['fair', 'fair', 'good', 'fair'] },
+      { element: 'Girders', spans: ['poor', 'fair', 'fair', 'poor'] },
+      { element: 'Piers', spans: ['fair', 'fair', 'good', 'fair'] },
+    ],
   },
   {
     id: 'br-bal',
@@ -225,98 +427,60 @@ export const BRIDGES: BridgeAsset[] = [
     yearBuilt: 1935,
     lengthM: 244,
     spans: 6,
-    material: 'Concrete arch',
+    material: 'Concrete',
+    structureType: 'Concrete Arch',
     owner: 'NZ Transport Agency',
     status: 'restricted',
     lastInspection: '2026-02-28',
     nextInspectionDue: '2026-05-28',
     conditionIndex: 58,
+    conditionBand: 'poor',
     riskLevel: 'critical',
     riskScore: 86,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 2200 },
-      { code: 'SUP', totalQuantity: 244 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 5 },
-      { code: 'BEA', totalQuantity: 24 },
-      { code: 'EXP', totalQuantity: 30 },
-      { code: 'RAI', totalQuantity: 488 },
-      { code: 'FOU', totalQuantity: 1100 },
-    ]),
-  },
-  {
-    id: 'br-awa',
-    name: 'Awanui Stream Bridge',
-    road: 'SH10',
-    region: 'Northland',
-    city: 'Kaitaia',
-    lat: -35.112,
-    lng: 173.263,
-    yearBuilt: 1978,
-    lengthM: 42,
-    spans: 2,
-    material: 'Reinforced concrete',
-    owner: 'Far North District Council',
-    status: 'operational',
-    lastInspection: '2026-03-30',
-    nextInspectionDue: '2026-09-30',
-    conditionIndex: 91,
-    riskLevel: 'low',
-    riskScore: 18,
-    elements: elementsFor([
-      { code: 'DEC', totalQuantity: 340 },
-      { code: 'SUP', totalQuantity: 42 },
-      { code: 'ABT', totalQuantity: 2 },
-      { code: 'PIE', totalQuantity: 1 },
-      { code: 'BEA', totalQuantity: 8 },
-      { code: 'EXP', totalQuantity: 6 },
-      { code: 'RAI', totalQuantity: 84 },
-      { code: 'FOU', totalQuantity: 180 },
-    ]),
+    remainingLifeYears: 16,
+    photoLabel: 'Arch elevation',
+    elements: [
+      el('DEC', 'Deck', 'm²', 2200, 55, 80),
+      el('SUP', 'Arch', 'm', 244, 50, 88),
+      el('PIE', 'Piers', 'each', 5, 52, 84),
+      el('BEA', 'Bearings', 'each', 24, 48, 90),
+    ],
+    defects: [
+      {
+        id: 'd8',
+        elementCode: 'SUP',
+        elementName: 'Arch rib',
+        title: 'Section loss',
+        severity: 'critical',
+        status: 'open',
+        date: '2026-02-28',
+      },
+    ],
+    inspections: [
+      {
+        id: 'i8',
+        date: '2026-02-28',
+        inspector: 'R. Lawson',
+        summary: 'Load restriction retained',
+        score: 58,
+      },
+    ],
+    documents: { drawings: 9, reports: 15, photos: 67 },
+    riskBreakdown: {
+      structural: 48,
+      hydraulic: 20,
+      seismic: 14,
+      traffic: 10,
+      other: 8,
+    },
+    maintenanceForecast: forecast(0.9),
+    heatmap: [
+      { element: 'Deck', spans: ['poor', 'poor', 'fair', 'poor', 'poor', 'fair'] },
+      { element: 'Arch', spans: ['critical', 'poor', 'poor', 'poor', 'critical', 'poor'] },
+    ],
   },
 ]
 
-export function createDefaultElementInspections(
-  elements: BridgeElement[],
-): ElementInspection[] {
-  return elements.map((el, index) => {
-    const environment: EnvironmentCategory =
-      index % 3 === 0 ? 'Severe' : index % 2 === 0 ? 'Moderate' : 'Low'
-    const cs3 = Math.round(el.totalQuantity * 0.08)
-    const cs4 = Math.round(el.totalQuantity * 0.02)
-    const cs2 = Math.round(el.totalQuantity * 0.18)
-    const cs1 = Math.max(0, el.totalQuantity - cs2 - cs3 - cs4)
-    return {
-      elementCode: el.code,
-      environment,
-      quantities: { cs1, cs2, cs3, cs4 },
-      usePercent: false,
-      maintenanceActions:
-        cs3 + cs4 > 0
-          ? [MAINTENANCE_LIBRARY[index % MAINTENANCE_LIBRARY.length]]
-          : [],
-      comments: '',
-    }
-  })
-}
-
-export function quantitySum(q: {
-  cs1: number
-  cs2: number
-  cs3: number
-  cs4: number
-}): number {
-  return q.cs1 + q.cs2 + q.cs3 + q.cs4
-}
-
-export function conditionWeightedScore(q: {
-  cs1: number
-  cs2: number
-  cs3: number
-  cs4: number
-}): number {
-  const total = quantitySum(q)
-  if (total <= 0) return 0
-  const weighted = (q.cs1 * 100 + q.cs2 * 75 + q.cs3 * 40 + q.cs4 * 10) / total
-  return Math.round(weighted)
+export function conditionLabel(band: ConditionBand): string {
+  return band.charAt(0).toUpperCase() + band.slice(1)
 }
