@@ -1,3 +1,33 @@
-# Bridge-Network
+# Bridge Network — Live Dashboard
 
-LucidChart : https://lucid.app/lucidchart/1e90abb3-350a-4f60-b86b-5636898ad2be/edit?viewport_loc=-1426%2C-834%2C3874%2C2309%2C0_0&invitationId=inv_46e89de4-13c1-4a72-a45d-ff5bfc947c4d
+Interactive live operations dashboard for monitoring Bridge Network nodes across the map.
+
+## Features
+
+- Full interactive map (Leaflet) with clickable bridge nodes
+- Live-updating metrics: throughput, latency, alerts, packet rate
+- Status filters (online / degraded / offline)
+- Streaming activity feed with node focus
+- Selected-node detail panel with live stats
+
+## Quick start
+
+```bash
+npm install
+npm run dev
+```
+
+Open the local URL Vite prints (usually `http://localhost:5173`).
+
+## Scripts
+
+| Command        | Description              |
+| -------------- | ------------------------ |
+| `npm run dev`  | Start development server |
+| `npm run build`| Typecheck + production build |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run oxlint               |
+
+## Stack
+
+React 19 · TypeScript · Vite · Leaflet / react-leaflet
