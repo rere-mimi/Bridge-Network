@@ -2116,6 +2116,76 @@ p {
   letter-spacing: normal;
 }
 
+.model-subhead {
+  margin: 1.15rem 0 0.55rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.model-choice-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: 0.75rem;
+}
+
+.model-choice-grid.compact button {
+  padding: 0.7rem 0.75rem;
+}
+
+.model-choice-grid.compact button strong {
+  font-size: 0.88rem;
+}
+
+.model-choice-grid.compact button span {
+  font-size: 0.75rem;
+}
+
+.model-dim-table-wrap {
+  overflow: auto;
+  max-height: 280px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.model-dim-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.model-dim-table th,
+.model-dim-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  white-space: nowrap;
+}
+
+.model-dim-table th {
+  position: sticky;
+  top: 0;
+  background: #0f172a;
+  color: var(--muted);
+  z-index: 1;
+}
+
+.model-dim-table input {
+  width: 4.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0b1220;
+  color: var(--text);
+  padding: 0.28rem 0.35rem;
+  font: inherit;
+}
+
+.model-dim-table .dim-na {
+  color: var(--muted);
+}
+
 .model-element-list {
   display: grid;
   gap: 0.45rem;

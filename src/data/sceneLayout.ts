@@ -1,5 +1,6 @@
-import type { BridgeAsset, BridgeElement, ConditionBand } from '../types'
+import type { BridgeAsset, BridgeElement, ConditionBand, ElementSizeM } from '../types'
 import { isStructural3dSchedule } from './modelCatalogue'
+import { sizeForSchedule } from './structureGeometry'
 
 const BAND_COLOR: Record<ConditionBand, string> = {
   excellent: '#22c55e',
@@ -59,6 +60,36 @@ function girderIndex(element: BridgeElement): number {
   const parts = element.id.split('-')
   const last = Number(parts[parts.length - 1])
   return Number.isFinite(last) ? last : 1
+}
+
+function resolveSize(bridge: BridgeAsset, el: BridgeElement): ElementSizeM {
+  return {
+    ...sizeForSchedule(bridge.geometry, el.scheduleNo),
+    ...el.sizeM,
+  }
+}
+
+function toSceneSizeM(size: ElementSizeM, fallback: SceneSizeM): SceneSizeM {
+  return {
+    length: size.length ?? fallback.length,
+    width: size.width ?? size.diameter ?? fallback.width,
+    height: size.height ?? size.openingHeight ?? fallback.height,
+  }
+}
+
+/** Map a real metre value onto scene units using structure length. */
+function mToScene(bridge: BridgeAsset, metres: number, axis: 'x' | 'y' | 'z' = 'x'): number {
+  if (axis === 'x') return (metres / Math.max(bridge.lengthM, 1)) * SCENE_LENGTH
+  // Vertical / transverse: keep roughly proportional to roadway width mapping
+  const deck = bridge.deckWidthM ?? 12
+  const roadW = roadWidthScene(deck)
+  if (axis === 'z') return (metres / Math.max(deck, 1)) * roadW
+  return metres * 0.22 // height → scene Y scale (~4.5 m → ~1)
+}
+
+function columnSpreadZ(count: number, roadHalf: number, index: number): number {
+  if (count <= 1) return 0
+  return -roadHalf * 0.72 + ((index - 1) / Math.max(count - 1, 1)) * roadHalf * 1.44
 }
 
 function spanCentreX(spanIndex: number, spans: number): number {
@@ -134,10 +165,22 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   const roadW = roadWidthScene(deckWidthM)
   const lengthM = Math.max(bridge.lengthM, 6)
   // Barrel / stream along Z (perpendicular to roadway on X)
-  const barrelLen = Math.max(roadW + 1.6, Math.min(5.4, 2.4 + lengthM / 18))
-  const openingH = 1.05
+  const barrelElPreview =
+    bridge.elements.find((e) => [600, 601, 602, 603].includes(e.scheduleNo)) ?? null
+  const barrelSize = barrelElPreview ? resolveSize(bridge, barrelElPreview) : {}
+  const barrelLen = Math.max(
+    roadW + 1.6,
+    Math.min(5.4, mToScene(bridge, barrelSize.length ?? lengthM * 0.35) || 2.4 + lengthM / 18),
+  )
+  const openingH = Math.max(
+    0.55,
+    mToScene(bridge, barrelSize.openingHeight ?? barrelSize.height ?? 1.05, 'y') || 1.05,
+  )
   // Clear opening width across the channel (along X, under the road)
-  const openingW = Math.min(2.6, Math.max(1.2, roadW * 0.7))
+  const openingW = Math.min(
+    2.6,
+    Math.max(1.2, barrelSize.width ?? barrelSize.diameter ?? roadW * 0.7),
+  )
   const wall = 0.16
   const invertY = 0.08
   const roofY = invertY + openingH + wall
@@ -329,75 +372,124 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
             kind: 'solid',
           }
           break
-        case 200:
+        case 200: {
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: spanLenM,
+            width: deckWidthM,
+            height: 0.35,
+          })
+          const deckH = Math.max(0.08, mToScene(bridge, sizeM.height, 'y'))
           node = {
             element: el,
             position: [x, DECK_Y, 0],
-            sizeM: { length: spanLenM, width: deckWidthM, height: 0.35 },
+            sizeM,
             color,
             faces: ['top', 'front', 'end'],
             parts: [
               {
                 position: [0, 0, 0],
-                size: [spanLenScene * 0.97, 0.2, roadW + 0.15],
+                size: [spanLenScene * 0.97, deckH, roadW + 0.15],
                 color,
               },
             ],
             kind: 'solid',
           }
           break
+        }
         case 201: {
           const g = girderIndex(el)
           const count = Math.max(
             bridge.elements.filter((e) => e.groupId === el.groupId && e.scheduleNo === 201)
               .length,
-            4,
+            bridge.geometry?.girderCountPerSpan || 1,
           )
-          const z = -roadHalf * 0.72 + ((g - 1) / Math.max(count - 1, 1)) * roadHalf * 1.44
-          const h = 0.42
+          const z = columnSpreadZ(count, roadHalf, g)
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: spanLenM,
+            width: 0.45,
+            height: 1.2,
+          })
+          const beamType = bridge.geometry?.beamType ?? 'open-ibeam'
+          const h = Math.max(0.2, mToScene(bridge, sizeM.height, 'y'))
+          const w = Math.max(0.12, mToScene(bridge, sizeM.width, 'z'))
+          const len = spanLenScene * 0.92
           node = {
             element: el,
-            position: [x, DECK_Y - 0.32, z],
-            sizeM: { length: spanLenM, width: 0.45, height: 1.2 },
+            position: [x, DECK_Y - h * 0.55, z],
+            sizeM,
             color,
             faces: ['top', 'side', 'end'],
-            parts: ibeamParts(spanLenScene * 0.92, h, 0.22, color),
+            parts:
+              beamType === 't-beam'
+                ? [
+                    {
+                      position: [0, h * 0.35, 0],
+                      size: [len, h * 0.28, w * 1.8],
+                      color,
+                    },
+                    {
+                      position: [0, -h * 0.1, 0],
+                      size: [len, h * 0.72, w * 0.45],
+                      color,
+                    },
+                  ]
+                : ibeamParts(len, h, w, color),
             kind: 'solid',
           }
           break
         }
-        case 202:
+        case 202: {
+          const g = girderIndex(el)
+          const siblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === 202,
+          )
+          const count = Math.max(siblings.length, 1)
+          const z = count > 1 ? columnSpreadZ(count, roadHalf, g) : 0
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: spanLenM,
+            width: deckWidthM * 0.7,
+            height: 1.6,
+          })
+          const h = Math.max(0.35, mToScene(bridge, sizeM.height, 'y'))
+          const boxW =
+            count > 1
+              ? Math.max(0.35, mToScene(bridge, sizeM.width, 'z'))
+              : roadW * 0.85
           node = {
             element: el,
-            position: [x, DECK_Y - 0.38, 0],
-            sizeM: { length: spanLenM, width: deckWidthM * 0.7, height: 1.6 },
+            position: [x, DECK_Y - h * 0.45, z],
+            sizeM,
             color,
             faces: ['top', 'front', 'end'],
             parts: [
               {
-                position: [0, 0.12, 0],
-                size: [spanLenScene * 0.92, 0.16, roadW * 0.85],
+                position: [0, h * 0.2, 0],
+                size: [spanLenScene * 0.92, h * 0.25, boxW],
                 color,
               },
               {
-                position: [0, -0.05, roadW * 0.36],
-                size: [spanLenScene * 0.92, 0.45, 0.14],
+                position: [0, -h * 0.15, boxW * 0.38],
+                size: [spanLenScene * 0.92, h * 0.7, Math.max(0.1, boxW * 0.12)],
                 color,
               },
               {
-                position: [0, -0.05, -roadW * 0.36],
-                size: [spanLenScene * 0.92, 0.45, 0.14],
+                position: [0, -h * 0.15, -boxW * 0.38],
+                size: [spanLenScene * 0.92, h * 0.7, Math.max(0.1, boxW * 0.12)],
                 color,
               },
               {
-                position: [0, -0.22, 0],
-                size: [spanLenScene * 0.92, 0.14, roadW * 0.7],
+                position: [0, -h * 0.4, 0],
+                size: [spanLenScene * 0.92, h * 0.2, boxW * 0.85],
                 color,
               },
             ],
             kind: 'solid',
           }
           break
+        }
         case 205:
           node = {
             element: el,
@@ -469,47 +561,108 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
     if (el.group === 'pier') {
       const x = pierX(idx, spans)
       switch (el.scheduleNo) {
-        case 402:
+        case 402: {
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: 1.2,
+            width: deckWidthM * 0.7,
+            height: 0.8,
+          })
+          const capH = Math.max(0.12, mToScene(bridge, sizeM.height, 'y'))
+          const capW = Math.max(roadW * 0.6, mToScene(bridge, sizeM.width, 'z'))
           node = {
             element: el,
             position: [x, 0.95, 0],
-            sizeM: { length: 1.2, width: deckWidthM * 0.7, height: 0.8 },
+            sizeM,
             color,
             faces: ['top', 'front', 'side'],
             parts: [
               {
                 position: [0, 0, 0],
-                size: [0.75, 0.22, roadW + 0.35],
+                size: [Math.max(0.4, mToScene(bridge, sizeM.length)), capH, capW],
                 color,
               },
             ],
             kind: 'solid',
           }
           break
-        case 404:
+        }
+        case 403: {
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: 0.8,
+            width: deckWidthM * 0.7,
+            height: 4,
+          })
+          const wallH = Math.max(0.8, mToScene(bridge, sizeM.height, 'y'))
+          const wallW = Math.max(roadW * 0.55, mToScene(bridge, sizeM.width, 'z'))
           node = {
             element: el,
-            position: [x, 0.4, 0],
-            sizeM: { length: 0.9, width: 0.9, height: 4.5 },
+            position: [x, wallH * 0.35, 0],
+            sizeM,
             color,
             faces: ['front', 'side', 'top'],
             parts: [
               {
-                position: [0, 0, roadHalf * 0.35],
-                size: [0.38, 1.05, 0.38],
-                shape: 'cylinder',
-                color,
-              },
-              {
-                position: [0, 0, -roadHalf * 0.35],
-                size: [0.38, 1.05, 0.38],
-                shape: 'cylinder',
+                position: [0, 0, 0],
+                size: [Math.max(0.25, mToScene(bridge, sizeM.length)), wallH, wallW],
                 color,
               },
             ],
             kind: 'solid',
           }
           break
+        }
+        case 404:
+        case 405:
+        case 407: {
+          const c = girderIndex(el)
+          const siblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === el.scheduleNo,
+          )
+          const count = Math.max(
+            siblings.length,
+            bridge.geometry?.columnsPerPier ?? 2,
+          )
+          const z = columnSpreadZ(count, roadHalf, c)
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: size.diameter ?? 0.9,
+            width: size.diameter ?? 0.9,
+            height: size.height ?? 4.5,
+          })
+          const colH = Math.max(0.7, mToScene(bridge, sizeM.height, 'y'))
+          const dia = Math.max(
+            0.18,
+            mToScene(bridge, size.diameter ?? sizeM.width, 'z'),
+          )
+          const isTrestle = el.scheduleNo === 405
+          node = {
+            element: el,
+            position: [x, colH * 0.35, z],
+            sizeM,
+            color,
+            faces: ['front', 'side', 'top'],
+            parts: isTrestle
+              ? [
+                  {
+                    position: [0, 0, 0],
+                    size: [dia * 1.2, colH, dia * 1.2],
+                    color,
+                  },
+                ]
+              : [
+                  {
+                    position: [0, 0, 0],
+                    size: [dia, colH, dia],
+                    shape: 'cylinder',
+                    color,
+                  },
+                ],
+            kind: 'solid',
+          }
+          break
+        }
         case 406:
           node = {
             element: el,
@@ -552,28 +705,37 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
       const side = idx <= 1 ? -1 : 1
       const x = side * (SCENE_LENGTH / 2 + 0.05)
       switch (el.scheduleNo) {
-        case 400:
+        case 400: {
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: 1.5,
+            width: deckWidthM,
+            height: 5,
+          })
+          const wallH = Math.max(0.9, mToScene(bridge, sizeM.height, 'y'))
+          const wallT = Math.max(0.3, mToScene(bridge, sizeM.length))
           node = {
             element: el,
-            position: [x, 0.55, 0],
-            sizeM: { length: 1.5, width: deckWidthM, height: 5 },
+            position: [x, wallH * 0.4, 0],
+            sizeM,
             color,
             faces: ['front', 'side', 'top'],
             parts: [
               {
                 position: [0, 0, 0],
-                size: [0.55, 1.35, roadW + 0.4],
+                size: [wallT, wallH, roadW + 0.4],
                 color,
               },
               {
-                position: [side * -0.2, 0.55, 0],
-                size: [0.45, 0.2, roadW + 0.2],
+                position: [side * -0.2, wallH * 0.4, 0],
+                size: [wallT * 0.8, 0.2, roadW + 0.2],
                 color: '#94a3b8',
               },
             ],
             kind: 'solid',
           }
           break
+        }
         case 401:
           node = {
             element: el,
@@ -598,6 +760,47 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
             kind: 'solid',
           }
           break
+        case 404:
+        case 405:
+        case 407: {
+          const c = girderIndex(el)
+          const siblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === el.scheduleNo,
+          )
+          const count = Math.max(
+            siblings.length,
+            bridge.geometry?.columnsPerAbutment ?? 4,
+          )
+          const z = columnSpreadZ(count, roadHalf, c)
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: size.diameter ?? 0.9,
+            width: size.diameter ?? 0.9,
+            height: size.height ?? 4.5,
+          })
+          const colH = Math.max(0.7, mToScene(bridge, sizeM.height, 'y'))
+          const dia = Math.max(
+            0.18,
+            mToScene(bridge, size.diameter ?? sizeM.width, 'z'),
+          )
+          node = {
+            element: el,
+            position: [x, colH * 0.35, z],
+            sizeM,
+            color,
+            faces: ['front', 'side', 'top'],
+            parts: [
+              {
+                position: [0, 0, 0],
+                size: [dia, colH, dia],
+                shape: el.scheduleNo === 405 ? 'box' : 'cylinder',
+                color,
+              },
+            ],
+            kind: 'solid',
+          }
+          break
+        }
         case 302:
         case 306:
           node = {

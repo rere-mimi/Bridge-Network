@@ -1,4 +1,4 @@
-import type { BridgeAsset, ConditionBand, StructureKind } from '../types'
+import type { BridgeAsset, ConditionBand, StructureGeometry, StructureKind } from '../types'
 import { buildAppendixCElements } from './buildElements'
 import {
   elementsForFamily,
@@ -6,6 +6,7 @@ import {
   isCulvertFamily,
   type StructureFamily,
 } from './elementSchedule'
+import { defaultGeometry } from './structureGeometry'
 
 function bandFromScore(score: number): ConditionBand {
   if (score >= 90) return 'excellent'
@@ -33,9 +34,9 @@ function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
   const rows = [
     { keys: [200, 600, 601, 602, 603], label: 'Primary member' },
     { keys: [201, 202, 205], label: 'Beams / arch' },
-    { keys: [404, 407, 610], label: 'Columns / piles' },
+    { keys: [404, 405, 407, 610], label: 'Columns / piles' },
     { keys: [302, 300, 301], label: 'Bearings' },
-    { keys: [402, 400, 606], label: 'Supports / headwall' },
+    { keys: [402, 400, 403, 606], label: 'Supports / headwall' },
   ]
   return rows.map((row) => ({
     element: row.label,
@@ -67,6 +68,7 @@ export type StructureDraft = {
   owner: string
   family: StructureFamily
   girderCountPerSpan: number
+  geometry: StructureGeometry
   includeElementNos?: number[]
   notes?: string
 }
@@ -80,6 +82,10 @@ export function buildStructureFromDraft(
   previous?: BridgeAsset,
 ): BridgeAsset {
   const kind = kindFromFamily(draft.family)
+  const geometry: StructureGeometry = {
+    ...draft.geometry,
+    girderCountPerSpan: draft.girderCountPerSpan,
+  }
   const elements = buildAppendixCElements({
     bridgeId: draft.id,
     spans: Math.max(1, draft.spans),
@@ -89,6 +95,7 @@ export function buildStructureFromDraft(
     material: draft.material,
     girderCountPerSpan: draft.girderCountPerSpan,
     includeElementNos: draft.includeElementNos,
+    geometry,
     conditionBase: previous ? Math.round(previous.conditionIndex * 0.9 + 8) : 82,
     riskBase: previous ? Math.round(previous.riskScore * 0.7) : 35,
   })
@@ -122,6 +129,7 @@ export function buildStructureFromDraft(
     lengthM: draft.lengthM,
     spans: Math.max(1, draft.spans),
     deckWidthM: draft.deckWidthM,
+    geometry,
     material: draft.material,
     structureType: familyLabel(draft.family),
     kind,
@@ -166,13 +174,57 @@ export function draftFromStructure(structure: BridgeAsset): StructureDraft {
   const family =
     structure.family ??
     (structure.kind === 'culvert' ? 'box-culvert' : 'girder')
+  const kind = kindFromFamily(family)
   const scheduleNos = [...new Set(structure.elements.map((e) => e.scheduleNo))].sort(
     (a, b) => a - b,
   )
   const girderCount = Math.max(
     1,
-    structure.elements.filter((e) => e.scheduleNo === 201).length || 4,
+    structure.geometry?.girderCountPerSpan ??
+      (structure.elements.filter((e) => e.scheduleNo === 201 || e.scheduleNo === 202).length /
+        Math.max(structure.spans, 1) ||
+        4),
   )
+  const columnsPerPier = Math.max(
+    1,
+    structure.geometry?.columnsPerPier ??
+      (structure.elements.filter(
+        (e) => e.group === 'pier' && [404, 405, 407].includes(e.scheduleNo),
+      ).length ||
+        2),
+  )
+
+  const baseGeometry = defaultGeometry({
+    lengthM: structure.lengthM,
+    spans: structure.spans,
+    deckWidthM: structure.deckWidthM ?? 12,
+    kind,
+    family,
+    girderCountPerSpan: girderCount,
+  })
+
+  const elementSizes = { ...baseGeometry.elementSizes }
+  for (const el of structure.elements) {
+    if (el.sizeM) {
+      elementSizes[el.scheduleNo] = {
+        ...elementSizes[el.scheduleNo],
+        ...el.sizeM,
+      }
+    }
+  }
+
+  const geometry: StructureGeometry = {
+    ...baseGeometry,
+    ...structure.geometry,
+    girderCountPerSpan: girderCount,
+    columnsPerPier,
+    columnsPerAbutment: structure.geometry?.columnsPerAbutment ?? baseGeometry.columnsPerAbutment,
+    elementSizes: {
+      ...baseGeometry.elementSizes,
+      ...structure.geometry?.elementSizes,
+      ...elementSizes,
+    },
+  }
 
   return {
     id: structure.id,
@@ -190,6 +242,7 @@ export function draftFromStructure(structure: BridgeAsset): StructureDraft {
     owner: structure.owner,
     family,
     girderCountPerSpan: girderCount,
+    geometry,
     includeElementNos: scheduleNos.length
       ? scheduleNos
       : elementsForFamily(family).map((e) => e.no),

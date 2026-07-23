@@ -11,7 +11,9 @@ import {
   type ElementGroup,
   type StructureFamily,
 } from './elementSchedule'
-import type { BridgeElement, ConditionBand } from '../types'
+import type { StructureGeometry } from './structureGeometry'
+import { defaultGeometry, sizeForSchedule } from './structureGeometry'
+import type { BridgeElement, ConditionBand, ElementSizeM } from '../types'
 
 function bandFromScore(score: number): ConditionBand {
   if (score >= 90) return 'excellent'
@@ -61,6 +63,45 @@ export type BuildElementsOptions = {
   material?: string
   /** Optional Appendix C element numbers to include (defaults to family set) */
   includeElementNos?: number[]
+  /** Beam/pier types and element dimensions */
+  geometry?: StructureGeometry
+}
+
+function resolveGeometry(options: BuildElementsOptions): StructureGeometry {
+  const kind = isCulvertFamily(options.family) ? 'culvert' : 'bridge'
+  const base = defaultGeometry({
+    lengthM: options.lengthM,
+    spans: options.spans,
+    deckWidthM: options.deckWidthM ?? 12,
+    kind,
+    family: options.family,
+    girderCountPerSpan: options.girderCountPerSpan,
+  })
+  if (!options.geometry) return base
+  return {
+    ...base,
+    ...options.geometry,
+    girderCountPerSpan:
+      options.geometry.girderCountPerSpan ??
+      options.girderCountPerSpan ??
+      base.girderCountPerSpan,
+    elementSizes: {
+      ...base.elementSizes,
+      ...options.geometry.elementSizes,
+    },
+  }
+}
+
+function applySize(
+  scheduleNo: number,
+  geometry: StructureGeometry,
+  spanLength: number,
+): ElementSizeM | undefined {
+  const size = { ...sizeForSchedule(geometry, scheduleNo) }
+  if (size.length == null && [200, 201, 202, 203, 205].includes(scheduleNo)) {
+    size.length = spanLength
+  }
+  return Object.keys(size).length ? size : undefined
 }
 
 /**
@@ -80,10 +121,17 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
     deckWidthM = 12,
     conditionBase = 75,
     riskBase = 45,
-    girderCountPerSpan = 4,
     material = 'Concrete',
     includeElementNos,
   } = options
+
+  const geometry = resolveGeometry(options)
+  const girderCountPerSpan = Math.max(0, geometry.girderCountPerSpan)
+  const columnsPerPier = Math.max(1, geometry.columnsPerPier)
+  const columnsPerAbutment = Math.max(1, geometry.columnsPerAbutment)
+  const beamIsOpen = geometry.beamType === 'open-ibeam' || geometry.beamType === 't-beam'
+  const beamIsBox = geometry.beamType === 'box'
+  const beamIsSlab = geometry.beamType === 'slab'
 
   const spanLength = lengthM / Math.max(spans, 1)
   const culvert = isCulvertFamily(family)
@@ -101,26 +149,51 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
       // Prefer one joint / bearing type per group
       if ([101, 102, 103, 104, 105, 106, 107, 108].includes(el.no)) continue
       if ([300, 301, 303, 304, 305].includes(el.no)) continue
-      if (family === 'girder' && el.no === 202) continue
-      if (family === 'box' && el.no === 201) continue
+
+      // Beam type drives which primary member is instantiated
+      if (beamIsOpen && el.no === 202) continue
+      if (beamIsBox && el.no === 201) continue
+      if (beamIsSlab && (el.no === 201 || el.no === 202)) continue
+
+      if (family === 'girder' && el.no === 202 && !beamIsBox) continue
+      if (family === 'box' && el.no === 201 && !beamIsOpen) continue
       if (family !== 'arch' && (el.no === 204 || el.no === 205 || el.no === 207)) continue
       if (family === 'arch' && (el.no === 201 || el.no === 202)) continue
 
+      // Pier type filters
+      if (group === 'pier') {
+        if (geometry.pierType === 'wall' && (el.no === 404 || el.no === 405 || el.no === 407)) continue
+        if (geometry.pierType === 'multi-column' && (el.no === 403 || el.no === 405)) continue
+        if (geometry.pierType === 'trestle' && (el.no === 403 || el.no === 404)) continue
+        if (geometry.pierType === 'pile-bent' && el.no !== 407 && (el.no === 403 || el.no === 404 || el.no === 405)) {
+          continue
+        }
+      }
+
       let quantity = defaultQuantity(el.unit, group, spanLength, deckWidthM)
-      if (el.no === 201 || el.no === 202) quantity = girderCountPerSpan
-      if (el.no === 302) quantity = girderCountPerSpan
+      if (el.no === 201 || el.no === 202) quantity = Math.max(1, girderCountPerSpan)
+      if (el.no === 302) quantity = Math.max(1, girderCountPerSpan || columnsPerPier)
       if (el.no === 2 || el.no === 3) quantity = Math.round(spanLength * 2)
-      if (el.no === 404 || el.no === 407) quantity = group === 'pier' ? 2 : 4
+      if (el.no === 404 || el.no === 405) {
+        quantity = group === 'pier' ? columnsPerPier : columnsPerAbutment
+      }
+      if (el.no === 407) {
+        quantity = group === 'pier' ? columnsPerPier : columnsPerAbutment
+      }
+      if (el.no === 403) quantity = 1
       if (el.no >= 600 && el.no <= 603) quantity = Math.round(lengthM)
 
       const desc = descriptionForElement(el.no, preferredMaterial)
       const majorGroup = majorGroupFor(el.no)
       const subgroup = subgroupFor(el.no)
       const code = formatElementCode(el.no)
+      const sizeM = applySize(el.no, geometry, spanLength)
 
-      // Open beams: one inventory row per beam line on the span
-      if (el.no === 201 && group === 'span') {
-        for (let g = 1; g <= girderCountPerSpan; g++) {
+      // Open beams / box lines: one inventory row per beam line on the span
+      if ((el.no === 201 || (el.no === 202 && beamIsBox)) && group === 'span' && girderCountPerSpan > 0) {
+        const count =
+          el.no === 202 && beamIsBox ? Math.max(1, Math.min(girderCountPerSpan, 3)) : girderCountPerSpan
+        for (let g = 1; g <= count; g++) {
           const id = formatElementId(bridgeId, groupId, el.no, g)
           const conditionScore = hashScore(id, conditionBase - 4)
           const riskScore = hashScore(`${id}-r`, riskBase + 8)
@@ -144,6 +217,45 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
             material: desc?.material ?? preferredMaterial,
             descriptionTitle: desc?.title,
             description: desc?.description,
+            sizeM,
+          })
+        }
+        continue
+      }
+
+      // Discrete columns / trestle legs / pile bents
+      if (
+        (el.no === 404 ||
+          el.no === 405 ||
+          (el.no === 407 && geometry.pierType === 'pile-bent')) &&
+        (group === 'pier' || group === 'abutment')
+      ) {
+        const count = group === 'pier' ? columnsPerPier : columnsPerAbutment
+        for (let c = 1; c <= count; c++) {
+          const id = formatElementId(bridgeId, groupId, el.no, c)
+          const conditionScore = hashScore(id, conditionBase - 2)
+          const riskScore = hashScore(`${id}-r`, riskBase + 6)
+          elements.push({
+            id,
+            bridgeId,
+            code,
+            scheduleNo: el.no,
+            name: `${el.name} ${c}`,
+            category: el.category,
+            majorGroup,
+            subgroup,
+            group,
+            groupId,
+            significance: el.significance as 1 | 2 | 3 | 4,
+            unit: el.unit,
+            totalQuantity: 1,
+            conditionScore,
+            riskScore,
+            band: bandFromScore(conditionScore),
+            material: desc?.material ?? preferredMaterial,
+            descriptionTitle: desc?.title,
+            description: desc?.description,
+            sizeM,
           })
         }
         continue
@@ -172,6 +284,7 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
         material: desc?.material ?? preferredMaterial,
         descriptionTitle: desc?.title,
         description: desc?.description,
+        sizeM,
       })
     }
   }

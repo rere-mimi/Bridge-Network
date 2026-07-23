@@ -34,6 +34,28 @@ export type ElementMajorGroup =
   | 'Sign / gantry'
   | 'Geotech'
 
+/** Real-world element dimensions (metres) for inventory + 3D. */
+export type ElementSizeM = {
+  length?: number
+  width?: number
+  height?: number
+  diameter?: number
+  openingHeight?: number
+}
+
+export type BeamSectionType = 'open-ibeam' | 't-beam' | 'box' | 'slab'
+export type PierType = 'wall' | 'multi-column' | 'trestle' | 'pile-bent'
+
+/** Editable geometry when creating / updating a model. */
+export type StructureGeometry = {
+  beamType: BeamSectionType
+  girderCountPerSpan: number
+  pierType: PierType
+  columnsPerPier: number
+  columnsPerAbutment: number
+  elementSizes: Record<number, ElementSizeM>
+}
+
 export type BridgeElement = {
   /** Unique instance id, e.g. 10001-S1-200 or 10001-S2-201-4 */
   id: string
@@ -66,6 +88,8 @@ export type BridgeElement = {
   descriptionTitle?: string
   /** Appendix F detailed description (summary) */
   description?: string
+  /** Real-world size for this instance (m) */
+  sizeM?: ElementSizeM
 }
 
 export type DefectRecord = {
@@ -140,6 +164,8 @@ export type BridgeAsset = {
   spans: number
   /** Carriageway / barrel width */
   deckWidthM?: number
+  /** Beam / pier configuration and per-element dimensions */
+  geometry?: StructureGeometry
   material: string
   structureType: string
   /** Bridge vs culvert */
