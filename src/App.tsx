@@ -35,6 +35,8 @@ import './App.css'
 import { openCrossSectionWindow } from './components/CrossSectionApp'
 import { SiteHazardCards, riskDonutStyle } from './components/SiteHazardCards'
 import { ModelExchangePanel } from './components/ModelExchangePanel'
+import { DefectQuickAddPanel } from './components/DefectQuickAddPanel'
+
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'assets', label: 'Assets' },
@@ -366,8 +368,21 @@ export default function App() {
   const defectSummary = useMemo(() => {
     if (!activeElement) return null
     const node = findSceneNode(sceneNodes, activeElement.element.id)
-    return summarizeElementDefects(activeElement.element, drawnDefects, node?.sizeM)
-  }, [activeElement, drawnDefects, sceneNodes])
+    return summarizeElementDefects(activeElement.element, drawnDefects, node?.sizeM, bridge)
+  }, [activeElement, drawnDefects, sceneNodes, bridge])
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      const data = event.data
+      if (!data || typeof data !== 'object') return
+      if (data.type !== 'bridge-network-drawn-defect') return
+      if (data.bridgeId !== bridge.id || !data.defect) return
+      setDrawnDefects((prev) => [data.defect as DrawnDefect, ...prev])
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [bridge.id])
+
   const materialLabel = activeElement?.element.material
     ? MATERIAL_LABEL[normalizeMaterial(activeElement.element.material)]
     : null
@@ -857,6 +872,13 @@ export default function App() {
                         2D cross section
                       </button>
                     </div>
+                    {isolate && (
+                      <DefectQuickAddPanel
+                        element={activeElement.element}
+                        bridge={bridge}
+                        onAdd={(defect) => setDrawnDefects((prev) => [defect, ...prev])}
+                      />
+                    )}
                     <div className="mini-kpis">
                       <div>
                         <span>Condition</span>
@@ -909,8 +931,9 @@ export default function App() {
                           {materialLabel && <li>Material catalogue · {materialLabel}</li>}
                         </ul>
                         <p className="page-note subtle">
-                          Provisional condition state (CS 1–4) is estimated from extent until the
-                          official severity × extent algorithm is uploaded.
+                          Reference area uses the element inspectable-area formula (I-girder / box /
+                          pier / deck). Provisional CS from extent applies only when CS was not set
+                          on the defect.
                         </p>
                       </div>
                     )}
@@ -965,6 +988,9 @@ export default function App() {
                                           : ''
                                       }`
                                     : `${(defect.areaM2 ?? 0).toFixed(3)} m²`}
+                                  {defect.conditionState != null
+                                    ? ` · CS ${defect.conditionState}`
+                                    : ''}
                                 </em>
                               </div>
                             </li>

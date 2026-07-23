@@ -692,7 +692,7 @@ export function TwinViewer({
             </p>
             {isolate && selectedNode && (
               <div className="isolate-badge">
-                Isolated · {selectedNode.element.name}
+                Isolated · {selectedNode.element.name} · add defect in the element panel
               </div>
             )}
             {bridge.importedModel && (
