@@ -381,12 +381,6 @@ export function TwinViewer({
     !!defectTool && (viewMode === '3d' || viewMode === 'section')
 
   function handleElementSelect(spot: Hotspot) {
-    // Second left-click on the already selected element → isolate + 2D section
-    if (selectedElementId === spot.id) {
-      onIsolateChange(true)
-      onViewMode('section')
-      return
-    }
     onSelectElement({
       id: spot.id,
       label: spot.label,
@@ -538,7 +532,7 @@ export function TwinViewer({
                   : 'Click to place area points · click near start or Enter to close'
                 : isolate
                   ? 'Isolated element · 2D section available from toolbar'
-                  : 'Click element to select · click again to isolate + open 2D section'}
+                  : 'Click element to select · use Isolate or 2D section in the toolbar'}
             </p>
             {isolate && selectedPart && (
               <div className="isolate-badge">Isolated · {selectedPart}</div>
