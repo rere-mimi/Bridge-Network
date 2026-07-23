@@ -7,6 +7,7 @@ export type HomeActionId =
   | 'select-structure'
   | 'network-map'
   | 'model-ready'
+  | 'database'
   | 'reports'
   | 'condition'
   | 'maintenance'
@@ -50,6 +51,12 @@ const ACTIONS: Array<{
     title: 'Model ready for inspection',
     blurb: 'Create or edit an Appendix C model so the twin is ready to inspect.',
     meta: 'Create model',
+  },
+  {
+    id: 'database',
+    title: 'Interrogate the database',
+    blurb: 'Browse inventory, elements, inspections, and maintenance — edit at source.',
+    meta: 'Database',
   },
   {
     id: 'reports',
@@ -108,6 +115,10 @@ export function HomeLauncher({
     }
     if (id === 'model-ready') {
       onOpenCreateModel()
+      return
+    }
+    if (id === 'database') {
+      onOpenModule('database')
       return
     }
     if (id === 'inspection') {

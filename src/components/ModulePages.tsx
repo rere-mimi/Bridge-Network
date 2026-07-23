@@ -4,6 +4,7 @@ import { conditionLabel } from '../data/bridges'
 import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
 import { ModelCataloguePanel } from './ModelCataloguePanel'
+import { DatabaseInterrogationPanel } from './DatabaseInterrogationPanel'
 import { MaintenanceActivitiesPanel } from './MaintenanceActivitiesPanel'
 import { MaintenanceWorklist } from './MaintenanceWorklist'
 import { NzNetworkMap } from './NzNetworkMap'
@@ -23,6 +24,7 @@ type ModulePagesProps = {
   onOpenCreateModel: () => void
   onEditStructure: (id: string) => void
   onSaved: (structure: BridgeAsset) => void
+  onCommitStructure: (structure: BridgeAsset) => void
   onDeleteUserStructure: (id: string) => void
   onExportDatabase: () => void
   onImportMapBridge: (bridge: NzMapBridge) => void
@@ -59,6 +61,7 @@ export function ModulePages({
   onOpenCreateModel,
   onEditStructure,
   onSaved,
+  onCommitStructure,
   onDeleteUserStructure,
   onExportDatabase,
   onImportMapBridge,
@@ -92,6 +95,20 @@ export function ModulePages({
           initialStructure={editingStructure}
           onSaved={onSaved}
           onCancel={onOpenOverview}
+        />
+      </main>
+    )
+  }
+
+  if (page === 'database') {
+    return (
+      <main className="module-page database-page">
+        <DatabaseInterrogationPanel
+          structures={allBridges}
+          selectedId={selectedId}
+          onSelectStructure={onSelectBridge}
+          onCommitStructure={onCommitStructure}
+          onOpenOverview={onOpenOverview}
         />
       </main>
     )

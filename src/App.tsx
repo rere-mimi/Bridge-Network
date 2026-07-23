@@ -37,6 +37,7 @@ import { openCrossSectionWindow } from './components/CrossSectionApp'
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'assets', label: 'Assets' },
+  { id: 'database', label: 'Database' },
   { id: 'create-model', label: 'Create model' },
   { id: 'inspections', label: 'Inspections' },
   { id: 'condition', label: 'Condition' },
@@ -247,6 +248,12 @@ export default function App() {
     setDraftRecommendations(withHazard.recommendations ?? [])
   }
 
+  function handleDatabaseCommit(structure: BridgeAsset) {
+    const next = saveUserStructure(structure)
+    setStructures(next)
+    setSelectedId(structure.id)
+  }
+
   function handleOpenCreateModel() {
     setEditingId(null)
     setShowHome(false)
@@ -435,6 +442,7 @@ export default function App() {
             onOpenCreateModel={handleOpenCreateModel}
             onEditStructure={handleEdit}
             onSaved={handleSaved}
+            onCommitStructure={handleDatabaseCommit}
             onDeleteUserStructure={handleDelete}
             onExportDatabase={handleExport}
             onImportMapBridge={handleImportMapBridge}

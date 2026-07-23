@@ -8,6 +8,7 @@ export type PlatformModule =
   | 'maintenance'
   | 'costs'
   | 'reports'
+  | 'database'
 
 export type SidebarId =
   | 'home'
