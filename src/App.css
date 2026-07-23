@@ -682,6 +682,14 @@ p {
   background: rgba(8, 15, 28, 0.04);
 }
 
+.defect-layer.active.element-locked {
+  cursor: crosshair;
+}
+
+.defect-layer.active.element-locked:active {
+  cursor: crosshair;
+}
+
 .defect-pin-bar {
   display: flex;
   flex-wrap: wrap;

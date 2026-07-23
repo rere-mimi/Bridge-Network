@@ -331,7 +331,11 @@ export function TwinViewer({
 
   function toggleTool(kind: DrawnDefectKind) {
     if (!selectedElementId) return
-    setDefectTool((t) => (t === kind ? null : kind))
+    setDefectTool((t) => {
+      const next = t === kind ? null : kind
+      if (next) onIsolateChange(true)
+      return next
+    })
   }
 
   function handleElementSelect(node: SceneNode) {
@@ -532,6 +536,7 @@ export function TwinViewer({
               elementSizeM={elementSizeM}
               face={defectFace}
               selectedElementId={selectedElementId}
+              elementName={selectedNode?.element.name}
               material={selectedMaterial}
               defectCode={defectCode ?? undefined}
               onComplete={(defect) =>
@@ -561,14 +566,12 @@ export function TwinViewer({
 
             <p className="viewer-hint">
               {drawingActive
-                ? defectTool === 'crack'
-                  ? `Crack on ${FACE_LABEL[defectFace]} · click points · double-click / Enter to finish · length in m (+ m/m²)`
-                  : `Area on ${FACE_LABEL[defectFace]} · click polygon · Enter to close · area in m²`
+                ? `Defect locked to ${selectedNode?.element.name ?? 'element'} · ${FACE_LABEL[defectFace]} · draw only inside the highlighted face`
                 : !selectedElementId
-                  ? 'Select an element first, then choose a material-matched Appendix E defect tool'
+                  ? 'Select an element first — defects are pinned inside that element’s limits'
                   : isolate
                     ? 'Isolated · orbit around element centre · open 2D section for face views'
-                    : 'Click any element mesh to select · Isolate for close-up · pin defects to the exact face'}
+                    : 'Click any element mesh to select · Isolate for close-up · pin defects inside the element face'}
             </p>
             {isolate && selectedNode && (
               <div className="isolate-badge">
