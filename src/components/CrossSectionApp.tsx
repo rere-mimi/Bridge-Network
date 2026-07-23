@@ -32,14 +32,7 @@ export function CrossSectionApp() {
     )
   }
 
-  return (
-    <CrossSectionView
-      element={node.element}
-      node={node}
-      bridgeName={bridge.name}
-      bridgeId={bridge.id}
-    />
-  )
+  return <CrossSectionView element={node.element} node={node} bridge={bridge} />
 }
 
 export function openCrossSectionWindow(bridgeId: string, elementId: string) {

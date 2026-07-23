@@ -3,7 +3,7 @@
  * Placeholder until the official severity × extent algorithm is uploaded.
  */
 
-import type { BridgeElement, ConditionBand, ConditionState, DrawnDefect } from '../types'
+import type { BridgeAsset, BridgeElement, ConditionBand, ConditionState, DrawnDefect } from '../types'
 import { summarizeElementDefects, type ElementDefectSummary } from './defectMetrics'
 
 export type ConditionStateResult = {
@@ -72,8 +72,9 @@ export function evaluateElementConditionState(
   element: BridgeElement,
   defects: DrawnDefect[],
   sizeM?: { length: number; width: number; height: number } | null,
+  bridge?: BridgeAsset | null,
 ): ConditionStateResult {
-  const summary = summarizeElementDefects(element, defects, sizeM)
+  const summary = summarizeElementDefects(element, defects, sizeM, bridge)
   const { conditionState, basis } = conditionStateFromExtent(summary)
   const conditionScore = scoreFromState(conditionState)
   return {

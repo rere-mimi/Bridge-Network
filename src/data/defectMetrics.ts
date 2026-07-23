@@ -1,4 +1,5 @@
-import type { BridgeElement, DrawnDefect, DefectFace } from '../types'
+import type { BridgeAsset, BridgeElement, DrawnDefect, DefectFace } from '../types'
+import { elementInspectableAreaM2 } from './elementInspectableArea'
 
 export type FaceMetres = {
   horizontalM: number
@@ -44,11 +45,19 @@ export function faceMetres(
   }
 }
 
-/** Element reference area for % defected (prefer schedule quantity when m²). */
+/**
+ * Element reference area for % defected.
+ * Prefer inspectable-area formulas (I-girder / box / pier / deck) when bridge is known.
+ */
 export function elementReferenceAreaM2(
   element: BridgeElement,
   sizeM?: { length: number; width: number; height: number } | null,
+  bridge?: BridgeAsset | null,
 ): number {
+  if (bridge) {
+    const fromFormula = elementInspectableAreaM2(element, bridge)
+    if (fromFormula > 0) return fromFormula
+  }
   if (element.unit === 'm²' && element.totalQuantity > 0) {
     return element.totalQuantity
   }
@@ -152,9 +161,10 @@ export function summarizeElementDefects(
   element: BridgeElement,
   defects: DrawnDefect[],
   sizeM?: { length: number; width: number; height: number } | null,
+  bridge?: BridgeAsset | null,
 ): ElementDefectSummary {
   const pinned = defects.filter((d) => d.elementId === element.id)
-  const referenceAreaM2 = roundMetric(elementReferenceAreaM2(element, sizeM), 3)
+  const referenceAreaM2 = roundMetric(elementReferenceAreaM2(element, sizeM, bridge), 3)
 
   let crackLengthM = 0
   let areaDefectM2 = 0

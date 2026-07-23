@@ -1300,6 +1300,114 @@ p {
   text-transform: capitalize;
 }
 
+.defect-quick-add {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.defect-quick-add .section-label {
+  margin: 0;
+}
+
+.defect-area-formula {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-word;
+}
+
+.defect-quick-field {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+}
+
+.defect-quick-field select,
+.defect-quick-field input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0b1220;
+  color: #e2e8f0;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+}
+
+.defect-cs-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.defect-cs-fieldset legend {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  margin-bottom: 0.35rem;
+}
+
+.defect-cs-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.cs-btn {
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.35rem 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cs-btn.active {
+  border-color: #38bdf8;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45);
+}
+
+.cs-btn.cs-1.active {
+  background: rgba(34, 197, 94, 0.18);
+}
+.cs-btn.cs-2.active {
+  background: rgba(234, 179, 8, 0.18);
+}
+.cs-btn.cs-3.active {
+  background: rgba(249, 115, 22, 0.2);
+}
+.cs-btn.cs-4.active {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.section-window-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.section-defect-aside {
+  position: sticky;
+  top: 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .section-window-body {
+    grid-template-columns: 1fr;
+  }
+  .section-defect-aside {
+    position: static;
+  }
+}
+
 .section-view {
   height: 100%;
   display: flex;

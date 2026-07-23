@@ -1,5 +1,8 @@
-import type { BridgeElement } from '../types'
+import { useMemo, useState } from 'react'
+import type { BridgeAsset, BridgeElement, DrawnDefect } from '../types'
 import type { SceneNode } from '../data/sceneLayout'
+import { loadStructureDatabase, saveUserStructure } from '../data/structureStore'
+import { DefectQuickAddPanel } from './DefectQuickAddPanel'
 
 type FaceId = 'top' | 'front' | 'side' | 'end'
 
@@ -83,7 +86,6 @@ function FacePanel({
         </span>
       </header>
       <svg viewBox={`0 0 ${svgW} ${svgH}`} className="face-svg" role="img">
-        {/* plot background */}
         <rect
           x={padL}
           y={padT}
@@ -94,7 +96,6 @@ function FacePanel({
           strokeWidth="1"
         />
 
-        {/* top scale */}
         <line
           x1={ox}
           y1={padT - 10}
@@ -118,7 +119,6 @@ function FacePanel({
           metres
         </text>
 
-        {/* side scale */}
         <line
           x1={padL - 10}
           y1={oy}
@@ -139,7 +139,6 @@ function FacePanel({
           )
         })}
 
-        {/* element face */}
         <rect
           x={ox}
           y={oy}
@@ -150,7 +149,6 @@ function FacePanel({
           stroke="#7dd3fc"
           strokeWidth="2"
         />
-        {/* hatch for depth cue */}
         <path
           d={`M ${ox} ${oy + shapeH * 0.35} L ${ox + shapeW} ${oy + shapeH * 0.35}`}
           stroke="#0f172a"
@@ -165,26 +163,51 @@ function FacePanel({
 type CrossSectionViewProps = {
   element: BridgeElement
   node: SceneNode
-  bridgeName: string
-  bridgeId: string
+  bridge: BridgeAsset
 }
 
 export function CrossSectionView({
   element,
   node,
-  bridgeName,
-  bridgeId: _bridgeId,
+  bridge,
 }: CrossSectionViewProps) {
   const faces = node.faces
+  const [localDefects, setLocalDefects] = useState<DrawnDefect[]>(() =>
+    (bridge.drawnDefects ?? []).filter((d) => d.elementId === element.id),
+  )
+
+  const pinnedNote = useMemo(
+    () => `${localDefects.length} defect(s) on this element`,
+    [localDefects.length],
+  )
+
+  function handleAdd(defect: DrawnDefect) {
+    setLocalDefects((prev) => [defect, ...prev])
+    const db = loadStructureDatabase()
+    const current = db.find((b) => b.id === bridge.id) ?? bridge
+    const nextDrawn = [defect, ...(current.drawnDefects ?? [])]
+    saveUserStructure({ ...current, drawnDefects: nextDrawn })
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage(
+        {
+          type: 'bridge-network-drawn-defect',
+          bridgeId: bridge.id,
+          defect,
+        },
+        '*',
+      )
+    }
+  }
 
   return (
     <div className="section-window">
       <header className="section-window-header">
         <div>
-          <p className="eyebrow">2D cross-section · {bridgeName}</p>
+          <p className="eyebrow">2D cross-section · {bridge.name}</p>
           <h1>{element.name}</h1>
           <p>
             {element.majorGroup} · {element.subgroup} · Appendix C {element.code}
+            {element.material ? ` · (${element.material})` : ''}
           </p>
         </div>
         <div className="section-window-dims">
@@ -203,15 +226,44 @@ export function CrossSectionView({
         </div>
       </header>
 
-      <div className="face-grid">
-        {faces.map((face) => (
-          <FacePanel key={face} face={face} node={node} />
-        ))}
+      <div className="section-window-body">
+        <div className="face-grid">
+          {faces.map((face) => (
+            <FacePanel key={face} face={face} node={node} />
+          ))}
+        </div>
+
+        <aside className="section-defect-aside">
+          <DefectQuickAddPanel element={element} bridge={bridge} onAdd={handleAdd} />
+          <p className="page-note subtle">{pinnedNote}</p>
+          {localDefects.length > 0 && (
+            <ul className="defect-list">
+              {localDefects.slice(0, 8).map((d) => (
+                <li key={d.id}>
+                  <span
+                    className={`sev ${d.kind === 'crack' ? 'sev-critical' : d.kind === 'spall' ? 'sev-high' : 'sev-medium'}`}
+                  />
+                  <div>
+                    <strong>{d.label}</strong>
+                    <em>
+                      CS {d.conditionState ?? '—'}
+                      {d.lengthM != null
+                        ? ` · ${d.lengthM.toFixed(3)} m`
+                        : d.areaM2 != null
+                          ? ` · ${d.areaM2.toFixed(3)} m²`
+                          : ''}
+                    </em>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
       </div>
 
       <p className="section-window-note">
-        Each panel shows one visible face of the selected element with metre scales on the top and
-        side.
+        Face views are for reference. Add defects by material and CS 1–4; extent uses the
+        inspectable area formula for this element type.
       </p>
     </div>
   )
