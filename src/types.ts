@@ -185,6 +185,30 @@ export type MaintenanceRecommendation = {
 export type StructureKind = 'bridge' | 'culvert' | 'retaining-wall' | 'tunnel'
 export type StructureSource = 'seed' | 'user'
 
+/** Mesh extracted from an IFC / Revit export (twin Y-up metres). */
+export type ImportedIfcMesh = {
+  id: string
+  expressId: number
+  name: string
+  color: string
+  /** Flat xyz positions in twin metres (Y-up) */
+  positions: number[]
+  indices: number[]
+}
+
+export type ImportedIfcModel = {
+  format: 'ifc'
+  fileName: string
+  importedAt: string
+  meshCount: number
+  boundsM: {
+    min: [number, number, number]
+    max: [number, number, number]
+  }
+  meshes: ImportedIfcMesh[]
+  schemaHint?: string
+}
+
 export type BridgeAsset = {
   /** Unique 5-digit numeric bridge ID */
   id: string
@@ -236,6 +260,8 @@ export type BridgeAsset = {
   defects: DefectRecord[]
   /** Drawn inspection defects persisted with the structure */
   drawnDefects?: DrawnDefect[]
+  /** Revit / IFC mesh overlay (imported model) */
+  importedModel?: ImportedIfcModel
   /** Costed maintenance activities selected at inspection */
   recommendations?: MaintenanceRecommendation[]
   inspections: InspectionHistoryItem[]

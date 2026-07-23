@@ -6,4 +6,8 @@ export default defineConfig({
   plugins: [react()],
   // Required for GitHub Pages project site: https://<user>.github.io/Bridge-Network/
   base: '/Bridge-Network/',
+  optimizeDeps: {
+    exclude: ['web-ifc'],
+  },
+  assetsInclude: ['**/*.wasm'],
 })
