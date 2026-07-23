@@ -37,7 +37,9 @@ import type {
   BridgeElement,
   DrawnDefect,
   DrawnDefectKind,
+  ImportedIfcMesh,
 } from '../types'
+import { metresToScene } from '../data/ifcExchange'
 
 type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
 
@@ -179,6 +181,47 @@ function SceneNodeMesh({
   )
 }
 
+function ImportedIfcMeshView({
+  bridge,
+  mesh,
+}: {
+  bridge: BridgeAsset
+  mesh: ImportedIfcMesh
+}) {
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry()
+    const twinPositions = mesh.positions
+    const scenePositions = new Float32Array((twinPositions.length / 3) * 3)
+    for (let i = 0; i < twinPositions.length; i += 3) {
+      const [sx, sy, sz] = metresToScene(bridge, [
+        twinPositions[i],
+        twinPositions[i + 1],
+        twinPositions[i + 2],
+      ])
+      scenePositions[i] = sx
+      scenePositions[i + 1] = sy
+      scenePositions[i + 2] = sz
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(scenePositions, 3))
+    geo.setIndex(mesh.indices)
+    geo.computeVertexNormals()
+    return geo
+  }, [bridge, mesh])
+
+  return (
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshStandardMaterial
+        color={mesh.color || '#94a3b8'}
+        metalness={0.15}
+        roughness={0.75}
+        transparent
+        opacity={0.92}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  )
+}
+
 function BridgeModel({
   bridge,
   selectedId,
@@ -195,12 +238,15 @@ function BridgeModel({
   const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
   const selected = findSceneNode(nodes, selectedId)
   const hideOthers = isolate && !!selected
+  const imported = bridge.importedModel?.meshes ?? []
+  const hasImport = imported.length > 0
 
   return (
     <group>
       {/* Structural twin only — no ground, grass, water, or embankment */}
       <gridHelper args={[24, 24, '#1e293b', '#0f172a']} position={[0, -0.5, 0]} />
 
+      {/* Parametric twin */}
       {nodes.map((node) => {
         const active = selectedId === node.element.id
         if (hideOthers && !active) return null
@@ -213,6 +259,14 @@ function BridgeModel({
           />
         )
       })}
+
+      {hasImport && (
+        <group>
+          {imported.map((mesh) => (
+            <ImportedIfcMeshView key={mesh.id} bridge={bridge} mesh={mesh} />
+          ))}
+        </group>
+      )}
     </group>
   )
 }
@@ -621,6 +675,11 @@ export function TwinViewer({
             {isolate && selectedNode && (
               <div className="isolate-badge">
                 Isolated · {selectedNode.element.name}
+              </div>
+            )}
+            {bridge.importedModel && (
+              <div className="isolate-badge ifc-badge">
+                IFC · {bridge.importedModel.fileName} · {bridge.importedModel.meshCount} meshes
               </div>
             )}
           </>

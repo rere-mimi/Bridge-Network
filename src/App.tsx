@@ -33,6 +33,7 @@ import type {
 } from './types'
 import './App.css'
 import { openCrossSectionWindow } from './components/CrossSectionApp'
+import { ModelExchangePanel } from './components/ModelExchangePanel'
 
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -225,6 +226,19 @@ export default function App() {
     setShowHome(false)
     setModule('create-model')
     setSidebar('home')
+  }
+
+  function handleIfcBridgeUpdated(updated: BridgeAsset) {
+    const next = saveUserStructure({ ...updated, source: 'user' })
+    setStructures(next)
+    setSelectedId(updated.id)
+  }
+
+  function handleIfcStructureCreated(created: BridgeAsset) {
+    const next = saveUserStructure(created)
+    setStructures(next)
+    setSelectedId(created.id)
+    goOverview(created.id)
   }
 
   function handleUpdateRecommendations(
@@ -709,6 +723,12 @@ export default function App() {
                   <span className={`status status-${bridge.status}`}>{bridge.status}</span>
                 </div>
               </div>
+
+              <ModelExchangePanel
+                bridge={bridge}
+                onBridgeUpdated={handleIfcBridgeUpdated}
+                onStructureCreated={handleIfcStructureCreated}
+              />
 
               <ResizablePanel
                 className="viewer-panel"
