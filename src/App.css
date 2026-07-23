@@ -682,6 +682,54 @@ p {
   background: rgba(8, 15, 28, 0.04);
 }
 
+.defect-pin-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 88%, #0ea5e9 12%);
+  font-size: 0.78rem;
+}
+
+.defect-pin-meta {
+  color: var(--muted);
+  flex: 1 1 12rem;
+}
+
+.defect-pin-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+}
+
+.defect-pin-bar select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.25rem 0.45rem;
+  max-width: 16rem;
+  font-size: 0.75rem;
+}
+
+.defect-extent-card {
+  margin: 0.55rem 0 0.35rem;
+}
+
+.defect-extent-card .page-stats.compact {
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.page-note.subtle {
+  opacity: 0.8;
+  font-size: 0.72rem;
+  margin-top: 0.35rem;
+}
+
 .scale-bar {
   position: absolute;
   left: 0.85rem;

@@ -13,6 +13,17 @@ import * as THREE from 'three'
 import { openCrossSectionWindow } from './CrossSectionApp'
 import { DefectDrawLayer } from './DefectDrawLayer'
 import {
+  defaultDefectCode,
+  defectTypesForTool,
+  FACE_LABEL,
+  MATERIAL_LABEL,
+  normalizeMaterial,
+  toolLabel,
+  toolTitle,
+  type DefectFace,
+} from '../data/defectTypes'
+import { faceMetres } from '../data/defectMetrics'
+import {
   buildSceneNodes,
   findSceneNode,
   nodeExtent,
@@ -288,13 +299,40 @@ export function TwinViewer({
 }: TwinViewerProps) {
   const [showScale, setShowScale] = useState(true)
   const [defectTool, setDefectTool] = useState<DrawnDefectKind | null>(null)
+  const [defectFace, setDefectFace] = useState<DefectFace>('front')
+  const [defectCode, setDefectCode] = useState<string | null>(null)
   const controlsRef = useRef(null)
 
   const nodes = useMemo(() => buildSceneNodes(bridge), [bridge])
   const selectedNode = findSceneNode(nodes, selectedElementId)
   const focusTarget = selectedNode?.position ?? null
+  const selectedMaterial = selectedNode?.element.material
+  const materialCode = normalizeMaterial(selectedMaterial)
+  const drawingActive = !!defectTool && viewMode === '3d' && !!selectedElementId
 
-  const drawingActive = !!defectTool && viewMode === '3d'
+  const elementSizeM = selectedNode?.sizeM ?? {
+    length: bridge.lengthM * 0.25,
+    width: bridge.deckWidthM ?? 12,
+    height: 2.5,
+  }
+  const faceM = faceMetres(elementSizeM, defectFace)
+
+  const toolOptions = defectTool
+    ? defectTypesForTool(defectTool, selectedMaterial)
+    : []
+
+  useEffect(() => {
+    if (!defectTool) {
+      setDefectCode(null)
+      return
+    }
+    setDefectCode(defaultDefectCode(defectTool, selectedMaterial))
+  }, [defectTool, selectedMaterial, selectedElementId])
+
+  function toggleTool(kind: DrawnDefectKind) {
+    if (!selectedElementId) return
+    setDefectTool((t) => (t === kind ? null : kind))
+  }
 
   function handleElementSelect(node: SceneNode) {
     onSelectElement({
@@ -369,26 +407,41 @@ export function TwinViewer({
         <button
           type="button"
           className={defectTool === 'crack' ? 'active danger' : ''}
-          title="Appendix E 1150 — Cracking (RC) line"
-          onClick={() => setDefectTool((t) => (t === 'crack' ? null : 'crack'))}
+          disabled={!selectedElementId}
+          title={
+            selectedElementId
+              ? toolTitle('crack', selectedMaterial)
+              : 'Select an element first to pin the defect'
+          }
+          onClick={() => toggleTool('crack')}
         >
-          Crack 1150
+          {toolLabel('crack', selectedMaterial)}
         </button>
         <button
           type="button"
           className={defectTool === 'spall' ? 'active warn' : ''}
-          title="Appendix E 1100 — Delamination/spall area"
-          onClick={() => setDefectTool((t) => (t === 'spall' ? null : 'spall'))}
+          disabled={!selectedElementId}
+          title={
+            selectedElementId
+              ? toolTitle('spall', selectedMaterial)
+              : 'Select an element first to pin the defect'
+          }
+          onClick={() => toggleTool('spall')}
         >
-          Spall 1100
+          {toolLabel('spall', selectedMaterial)}
         </button>
         <button
           type="button"
           className={defectTool === 'patch' ? 'active info' : ''}
-          title="Appendix E 3100 — Patched area"
-          onClick={() => setDefectTool((t) => (t === 'patch' ? null : 'patch'))}
+          disabled={!selectedElementId}
+          title={
+            selectedElementId
+              ? toolTitle('patch', selectedMaterial)
+              : 'Select an element first to pin the defect'
+          }
+          onClick={() => toggleTool('patch')}
         >
-          Patch 3100
+          {toolLabel('patch', selectedMaterial)}
         </button>
         {drawnDefects.length > 0 && (
           <button
@@ -401,6 +454,44 @@ export function TwinViewer({
           </button>
         )}
       </div>
+
+      {defectTool && selectedElementId && selectedNode && (
+        <div className="defect-pin-bar" role="group" aria-label="Defect pin settings">
+          <span className="defect-pin-meta">
+            Pin → {selectedNode.element.name}
+            {' · '}
+            {MATERIAL_LABEL[materialCode]}
+            {' · '}
+            face {faceM.horizontalM.toFixed(2)}×{faceM.verticalM.toFixed(2)} m
+          </span>
+          <label>
+            Face
+            <select
+              value={defectFace}
+              onChange={(e) => setDefectFace(e.target.value as DefectFace)}
+            >
+              {(Object.keys(FACE_LABEL) as DefectFace[]).map((f) => (
+                <option key={f} value={f}>
+                  {FACE_LABEL[f]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Appendix E
+            <select
+              value={defectCode ?? ''}
+              onChange={(e) => setDefectCode(e.target.value)}
+            >
+              {toolOptions.map((opt) => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.code} · {opt.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       <div className="viewer-stage" style={height ? { height, minHeight: height } : undefined}>
         {(viewMode === '3d' || viewMode === 'section') && (
@@ -438,8 +529,11 @@ export function TwinViewer({
               active={drawingActive}
               tool={defectTool}
               defects={drawnDefects}
-              bridgeLengthM={bridge.lengthM}
+              elementSizeM={elementSizeM}
+              face={defectFace}
               selectedElementId={selectedElementId}
+              material={selectedMaterial}
+              defectCode={defectCode ?? undefined}
               onComplete={(defect) =>
                 onDrawnDefectsChange([defect, ...drawnDefects])
               }
@@ -468,11 +562,13 @@ export function TwinViewer({
             <p className="viewer-hint">
               {drawingActive
                 ? defectTool === 'crack'
-                  ? 'Click to place crack points · double-click / Enter / right-click to finish'
-                  : 'Click to place area points · click near start or Enter to close'
-                : isolate
-                  ? 'Isolated · orbit around element centre · open 2D section for face views'
-                  : 'Click any element mesh to select · Isolate for close-up · 2D section opens a new window'}
+                  ? `Crack on ${FACE_LABEL[defectFace]} · click points · double-click / Enter to finish · length in m (+ m/m²)`
+                  : `Area on ${FACE_LABEL[defectFace]} · click polygon · Enter to close · area in m²`
+                : !selectedElementId
+                  ? 'Select an element first, then choose a material-matched Appendix E defect tool'
+                  : isolate
+                    ? 'Isolated · orbit around element centre · open 2D section for face views'
+                    : 'Click any element mesh to select · Isolate for close-up · pin defects to the exact face'}
             </p>
             {isolate && selectedNode && (
               <div className="isolate-badge">

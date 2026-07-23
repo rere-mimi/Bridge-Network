@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { enrichStructuresWithNshm, enrichStructureWithNshm, needsNshmEnrichment } from './data/applySeismicRisk'
 import { conditionLabel } from './data/bridges'
+import { FACE_LABEL, MATERIAL_LABEL, normalizeMaterial } from './data/defectTypes'
+import { summarizeElementDefects } from './data/defectMetrics'
 import {
   deleteUserStructure,
   exportDatabaseJson,
   loadStructureDatabase,
   saveUserStructure,
 } from './data/structureStore'
+import { findSceneNode, buildSceneNodes } from './data/sceneLayout'
 import { MiniMap } from './components/MiniMap'
 import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { ResizablePanel } from './components/ResizablePanel'
@@ -202,6 +205,23 @@ export default function App() {
       d.elementName === activeElement.element.id ||
       d.elementName.includes(activeElement.element.groupId),
   )
+
+  const sceneNodes = useMemo(() => buildSceneNodes(bridge), [bridge])
+  const pinnedDrawn = useMemo(
+    () =>
+      activeElement
+        ? drawnDefects.filter((d) => d.elementId === activeElement.element.id)
+        : [],
+    [activeElement, drawnDefects],
+  )
+  const defectSummary = useMemo(() => {
+    if (!activeElement) return null
+    const node = findSceneNode(sceneNodes, activeElement.element.id)
+    return summarizeElementDefects(activeElement.element, drawnDefects, node?.sizeM)
+  }, [activeElement, drawnDefects, sceneNodes])
+  const materialLabel = activeElement?.element.material
+    ? MATERIAL_LABEL[normalizeMaterial(activeElement.element.material)]
+    : null
 
   return (
     <div className="twin-app">
@@ -619,15 +639,41 @@ export default function App() {
                           </div>
                         </li>
                       ))}
-                      {bridge.defects.length === 0 && drawnDefects.length === 0 && (
+                      {bridge.defects.length === 0 && pinnedDrawn.length === 0 && (
                         <li className="empty">No open defects</li>
                       )}
                     </ul>
-                    {drawnDefects.length > 0 && (
+                    {defectSummary && defectSummary.defectCount > 0 && (
+                      <div className="defect-extent-card">
+                        <p className="section-label">Defect extent on element</p>
+                        <ul className="page-stats compact">
+                          <li>
+                            Area in defect{' '}
+                            <strong>{defectSummary.percentAreaInDefect.toFixed(2)}%</strong>
+                          </li>
+                          <li>
+                            Defect area {defectSummary.equivAreaM2.toFixed(3)} m² /{' '}
+                            {defectSummary.referenceAreaM2.toFixed(2)} m²
+                          </li>
+                          {defectSummary.crackLengthM > 0 && (
+                            <li>
+                              Cracks {defectSummary.crackLengthM.toFixed(3)} m ·{' '}
+                              {defectSummary.crackDensityMPerM2.toFixed(4)} m/m²
+                            </li>
+                          )}
+                          {materialLabel && <li>Material catalogue · {materialLabel}</li>}
+                        </ul>
+                        <p className="page-note subtle">
+                          Condition state from severity × extent will use this extent once the
+                          uploaded algorithm is wired in.
+                        </p>
+                      </div>
+                    )}
+                    {pinnedDrawn.length > 0 && (
                       <>
-                        <p className="section-label">Drawn defects</p>
+                        <p className="section-label">Pinned drawn defects</p>
                         <ul className="defect-list">
-                          {drawnDefects.map((defect) => (
+                          {pinnedDrawn.map((defect) => (
                             <li key={defect.id}>
                               <span
                                 className={`sev ${defect.kind === 'crack' ? 'sev-critical' : defect.kind === 'spall' ? 'sev-high' : 'sev-medium'}`}
@@ -636,18 +682,27 @@ export default function App() {
                                 <strong>{defect.label}</strong>
                                 <em>
                                   E{defect.defectCode}
+                                  {defect.face ? ` · ${FACE_LABEL[defect.face]}` : ''}
                                   {' · '}
                                   {defect.kind === 'crack'
-                                    ? `${defect.lengthM ?? 0} m`
-                                    : `${defect.areaM2 ?? 0} m²`}
-                                  {' · '}
-                                  {new Date(defect.createdAt).toLocaleTimeString()}
+                                    ? `${(defect.lengthM ?? 0).toFixed(3)} m${
+                                        defect.lengthDensityMPerM2 != null
+                                          ? ` · ${defect.lengthDensityMPerM2.toFixed(4)} m/m²`
+                                          : ''
+                                      }`
+                                    : `${(defect.areaM2 ?? 0).toFixed(3)} m²`}
                                 </em>
                               </div>
                             </li>
                           ))}
                         </ul>
                       </>
+                    )}
+                    {drawnDefects.length > pinnedDrawn.length && (
+                      <p className="page-note subtle">
+                        {drawnDefects.length - pinnedDrawn.length} drawn defect(s) on other
+                        elements
+                      </p>
                     )}
                     <p className="section-label">Documents & records</p>
                     <div className="doc-row">

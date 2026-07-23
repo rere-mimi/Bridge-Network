@@ -81,18 +81,37 @@ export type DefectRecord = {
 }
 
 export type DrawnDefectKind = 'crack' | 'spall' | 'patch'
+export type DefectFace = 'top' | 'front' | 'side' | 'end'
 
 export type DrawnDefect = {
   id: string
   kind: DrawnDefectKind
   /** Appendix E defect type code */
   defectCode: string
-  points: Array<{ x: number; y: number }> // normalized 0-1 canvas coords
+  /** Normalised 0–1 coordinates on the pinned face */
+  points: Array<{ x: number; y: number }>
   label: string
+  /** Crack length on the face (m) */
   lengthM?: number
+  /** Polygon area on the face (m²) */
   areaM2?: number
+  /** Crack intensity: m of crack per m² of face */
+  lengthDensityMPerM2?: number
+  /** Face area used for the measurement (m²) */
+  faceAreaM2?: number
+  /** Equivalent defect area (polygons as-is; cracks use nominal width) */
+  equivAreaM2?: number
   createdAt: string
+  /** Element the defect is pinned to (required when attributed) */
   elementId?: string | null
+  /** Exact inspection face on the element */
+  face?: DefectFace
+  /** Material code of the host element at draw time */
+  material?: 'S' | 'P' | 'C' | 'T' | 'M' | 'O'
+  /**
+   * Condition state 1–4 (Appendix). Optional until severity×extent algorithm is uploaded.
+   */
+  conditionState?: ConditionState
 }
 
 
