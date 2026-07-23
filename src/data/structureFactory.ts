@@ -159,18 +159,31 @@ export function buildStructureFromDraft(
     inspections: [inspection, ...(previous?.inspections ?? [])].slice(0, 12),
     documents: previous?.documents ?? { drawings: 0, reports: 0, photos: 0 },
     riskBreakdown: previous?.riskBreakdown ?? {
-      structural: 20,
-      hydraulic: kind === 'culvert' ? 35 : 18,
+      structural: 18,
+      hydraulic: kind === 'culvert' ? 28 : 16,
       seismic: 18,
-      traffic: 16,
-      other: 11,
+      geology: 12,
+      traffic: 14,
+      other: 12,
     },
-    // Drop stale NSHM result when coordinates change; enrichment re-queries HazardMaps API.
+    // Drop stale site hazards when coordinates change; enrichment re-queries APIs.
     seismicHazard:
       previous?.seismicHazard &&
       Math.abs(previous.seismicHazard.lat - draft.lat) < 0.0005 &&
       Math.abs(previous.seismicHazard.lng - draft.lng) < 0.0005
         ? previous.seismicHazard
+        : undefined,
+    floodHazard:
+      previous?.floodHazard &&
+      Math.abs(previous.floodHazard.lat - draft.lat) < 0.0005 &&
+      Math.abs(previous.floodHazard.lng - draft.lng) < 0.0005
+        ? previous.floodHazard
+        : undefined,
+    geologyHazard:
+      previous?.geologyHazard &&
+      Math.abs(previous.geologyHazard.lat - draft.lat) < 0.0005 &&
+      Math.abs(previous.geologyHazard.lng - draft.lng) < 0.0005
+        ? previous.geologyHazard
         : undefined,
     maintenanceForecast: previous?.maintenanceForecast ?? forecast(0.35),
     heatmap: heatFromElements(Math.max(1, draft.spans), elements),
