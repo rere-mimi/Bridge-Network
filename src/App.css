@@ -1877,6 +1877,55 @@ p {
   margin-top: 0.35rem;
 }
 
+.site-hazard-cards {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.site-hazard-cards .nshm-hazard-card + .nshm-hazard-card {
+  margin-top: 0.55rem;
+}
+
+.flood-hazard-card {
+  border-top-color: color-mix(in srgb, #22d3ee 45%, var(--line));
+}
+
+.geology-hazard-card {
+  border-top-color: color-mix(in srgb, #84cc16 45%, var(--line));
+}
+
+.flood-flow-table-wrap {
+  overflow-x: auto;
+  margin: 0.25rem 0 0.15rem;
+}
+
+.flood-flow-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.flood-flow-table th,
+.flood-flow-table td {
+  text-align: left;
+  padding: 0.28rem 0.4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.flood-flow-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.flood-flow-table td em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.72rem;
+}
+
 .nshm-hazard-actions .page-btn {
   text-decoration: none;
 }

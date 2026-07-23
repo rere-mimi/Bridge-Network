@@ -242,8 +242,11 @@ export type BridgeAsset = {
   documents: { drawings: number; reports: number; photos: number }
   riskBreakdown: {
     structural: number
+    /** Flood / scour / hydraulic share (NIWA flood frequency when over a stream) */
     hydraulic: number
     seismic: number
+    /** Geology / landslide / foundation soils (GNS 1:250k) */
+    geology: number
     traffic: number
     other: number
   }
@@ -263,6 +266,55 @@ export type BridgeAsset = {
     fetchedAt: string
     mapUrl: string
     curvesUrl: string
+  }
+  /** NIWA flood frequency at the nearest REC stream reach (return-period peak flows). */
+  floodHazard?: {
+    lat: number
+    lng: number
+    overStream: boolean
+    riverName?: string
+    nzReach?: number
+    catchmentKm2?: number
+    streamOrder?: number
+    searchRadiusM: number
+    flows: Array<{
+      returnPeriodYr: number | 'MAF'
+      label: string
+      flowM3s: number
+      seM3s?: number
+      aep: number
+    }>
+    source: 'niwa-api' | 'none' | 'error'
+    fetchedAt: string
+    mapUrl: string
+    note?: string
+  }
+  /** GNS geological unit + nearby landslide deposits at the site. */
+  geologyHazard?: {
+    lat: number
+    lng: number
+    unit?: {
+      name: string
+      mainRock?: string
+      rockGroup?: string
+      rockClass?: string
+      lithology?: string
+      description?: string
+      unitType?: string
+    }
+    landslidesNearby: Array<{
+      name: string
+      mainRock?: string
+      rockGroup?: string
+      description?: string
+    }>
+    softGround: boolean
+    landslideProximity: 'none' | 'nearby' | 'on-deposit'
+    source: 'gns-api' | 'none' | 'error'
+    fetchedAt: string
+    geologyMapUrl: string
+    landslideMapUrl: string
+    note?: string
   }
   maintenanceForecast: Array<{
     year: number

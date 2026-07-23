@@ -33,6 +33,7 @@ import type {
 } from './types'
 import './App.css'
 import { openCrossSectionWindow } from './components/CrossSectionApp'
+import { SiteHazardCards, riskDonutStyle } from './components/SiteHazardCards'
 
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -997,9 +998,9 @@ export default function App() {
             <ResizablePanel
               title="Risk dashboard"
               storageKey="risk"
-              defaultHeight={280}
-              minHeight={180}
-              maxHeight={480}
+              defaultHeight={420}
+              minHeight={220}
+              maxHeight={720}
               selected={selectedPanel === 'risk'}
               onSelect={() => setSelectedPanel('risk')}
             >
@@ -1007,13 +1008,7 @@ export default function App() {
                 <div
                   className="risk-donut"
                   style={{
-                    background: `conic-gradient(
-                      #38bdf8 0 ${bridge.riskBreakdown.structural}%,
-                      #22d3ee ${bridge.riskBreakdown.structural}% ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic}%,
-                      #a78bfa ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic}% ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic + bridge.riskBreakdown.seismic}%,
-                      #f59e0b ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic + bridge.riskBreakdown.seismic}% ${bridge.riskBreakdown.structural + bridge.riskBreakdown.hydraulic + bridge.riskBreakdown.seismic + bridge.riskBreakdown.traffic}%,
-                      #94a3b8 0
-                    )`,
+                    background: riskDonutStyle(bridge.riskBreakdown),
                   }}
                 >
                   <div>
@@ -1023,52 +1018,13 @@ export default function App() {
                 </div>
                 <ul>
                   <li>Structural {bridge.riskBreakdown.structural}%</li>
-                  <li>Hydraulic {bridge.riskBreakdown.hydraulic}%</li>
-                  <li>Seismic {bridge.riskBreakdown.seismic}%</li>
+                  <li>Flood {bridge.riskBreakdown.hydraulic}%</li>
+                  <li>Earthquake {bridge.riskBreakdown.seismic}%</li>
+                  <li>Geology {bridge.riskBreakdown.geology ?? 0}%</li>
                   <li>Traffic {bridge.riskBreakdown.traffic}%</li>
                 </ul>
               </div>
-              {bridge.seismicHazard ? (
-                <div className="nshm-hazard-card">
-                  <p className="nshm-hazard-label">NZ NSHM seismic hazard</p>
-                  <strong>
-                    PGA {bridge.seismicHazard.pga.toFixed(2)} g
-                    <em>
-                      {' '}
-                      · 10% in {bridge.seismicHazard.investigationYears} yr · Vs30{' '}
-                      {bridge.seismicHazard.vs30}
-                    </em>
-                  </strong>
-                  <p>
-                    {bridge.seismicHazard.locationName ??
-                      `${bridge.lat.toFixed(3)}, ${bridge.lng.toFixed(3)}`}
-                    {' · '}
-                    {bridge.seismicHazard.source === 'nshm-api'
-                      ? bridge.seismicHazard.model
-                      : 'regional estimate (API unavailable)'}
-                  </p>
-                  <div className="nshm-hazard-actions">
-                    <a
-                      className="page-btn primary"
-                      href={bridge.seismicHazard.mapUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open Hazard Maps
-                    </a>
-                    <a
-                      className="page-btn"
-                      href={bridge.seismicHazard.curvesUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Site curves
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <p className="nshm-hazard-pending">Assessing NSHM seismic hazard…</p>
-              )}
+              <SiteHazardCards bridge={bridge} />
             </ResizablePanel>
 
             <ResizablePanel

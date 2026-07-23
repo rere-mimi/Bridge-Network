@@ -9,6 +9,7 @@ import { MaintenanceActivitiesPanel } from './MaintenanceActivitiesPanel'
 import { MaintenanceWorklist } from './MaintenanceWorklist'
 import { NzNetworkMap } from './NzNetworkMap'
 import { ResizablePanel } from './ResizablePanel'
+import { SiteHazardCards } from './SiteHazardCards'
 import type { MaintenanceRecommendation } from '../types'
 
 type ModulePagesProps = {
@@ -325,7 +326,7 @@ export function ModulePages({
       {page === 'risk' && (
         <PageShell
           title="Risk"
-          subtitle="Risk ranking with NZ NSHM seismic hazard for each structure."
+          subtitle="Earthquake (NSHM), flood (NIWA return-period flows), and geology / landslide (GNS) for each structure."
         >
           <div className="page-grid-2">
             <ResizablePanel title="Risk ranking" storageKey="risk-rank" defaultHeight={360}>
@@ -341,71 +342,29 @@ export function ModulePages({
                           {item.seismicHazard
                             ? ` · PGA ${item.seismicHazard.pga.toFixed(2)}g`
                             : ''}
+                          {item.floodHazard?.overStream && item.floodHazard.flows.length
+                            ? ` · Q100 ${item.floodHazard.flows.find((f) => f.returnPeriodYr === 100)?.flowM3s ?? '—'} m³/s`
+                            : ''}
                         </span>
                       </button>
                     </li>
                   ))}
               </ul>
             </ResizablePanel>
-            <ResizablePanel title={`${bridge.name} breakdown`} storageKey="risk-break" defaultHeight={360}>
+            <ResizablePanel title={`${bridge.name} breakdown`} storageKey="risk-break" defaultHeight={520}>
               <ul className="page-stats">
                 <li>Structural {bridge.riskBreakdown.structural}%</li>
-                <li>Hydraulic {bridge.riskBreakdown.hydraulic}%</li>
-                <li>Seismic {bridge.riskBreakdown.seismic}%</li>
+                <li>Flood {bridge.riskBreakdown.hydraulic}%</li>
+                <li>Earthquake {bridge.riskBreakdown.seismic}%</li>
+                <li>Geology {bridge.riskBreakdown.geology ?? 0}%</li>
                 <li>Traffic {bridge.riskBreakdown.traffic}%</li>
                 <li>Other {bridge.riskBreakdown.other}%</li>
               </ul>
-              {bridge.seismicHazard ? (
-                <div className="nshm-hazard-card compact">
-                  <p className="nshm-hazard-label">NZ NSHM (Hazard Maps)</p>
-                  <strong>
-                    PGA {bridge.seismicHazard.pga.toFixed(2)} g
-                    <em>
-                      {' '}
-                      · 10% in {bridge.seismicHazard.investigationYears} yr · Vs30{' '}
-                      {bridge.seismicHazard.vs30} m/s
-                    </em>
-                  </strong>
-                  <p>
-                    Site {bridge.lat.toFixed(3)}, {bridge.lng.toFixed(3)}
-                    {bridge.seismicHazard.locationName
-                      ? ` · ${bridge.seismicHazard.locationName}`
-                      : ''}
-                    {' · '}
-                    {bridge.seismicHazard.source === 'nshm-api'
-                      ? bridge.seismicHazard.model
-                      : 'regional estimate'}
-                  </p>
-                  <div className="nshm-hazard-actions">
-                    <a
-                      className="page-btn primary"
-                      href={bridge.seismicHazard.mapUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open Hazard Maps
-                    </a>
-                    <a
-                      className="page-btn"
-                      href={bridge.seismicHazard.curvesUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Site curves
-                    </a>
-                    <button type="button" className="page-btn" onClick={() => onOpenOverview()}>
-                      View in twin
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="nshm-hazard-pending">Assessing NSHM seismic hazard…</p>
-                  <button type="button" className="page-btn primary" onClick={() => onOpenOverview()}>
-                    View in twin
-                  </button>
-                </>
-              )}
+              <SiteHazardCards
+                bridge={bridge}
+                compact
+                onOpenOverview={() => onOpenOverview()}
+              />
             </ResizablePanel>
           </div>
         </PageShell>
