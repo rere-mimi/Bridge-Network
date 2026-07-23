@@ -1,6 +1,7 @@
 import type { BridgeAsset, ConditionBand, StructureKind } from '../types'
 import { buildAppendixCElements } from './buildElements'
 import {
+  elementsForFamily,
   familyLabel,
   isCulvertFamily,
   type StructureFamily,
@@ -74,7 +75,10 @@ export function kindFromFamily(family: StructureFamily): StructureKind {
   return isCulvertFamily(family) ? 'culvert' : 'bridge'
 }
 
-export function buildStructureFromDraft(draft: StructureDraft): BridgeAsset {
+export function buildStructureFromDraft(
+  draft: StructureDraft,
+  previous?: BridgeAsset,
+): BridgeAsset {
   const kind = kindFromFamily(draft.family)
   const elements = buildAppendixCElements({
     bridgeId: draft.id,
@@ -85,13 +89,26 @@ export function buildStructureFromDraft(draft: StructureDraft): BridgeAsset {
     material: draft.material,
     girderCountPerSpan: draft.girderCountPerSpan,
     includeElementNos: draft.includeElementNos,
-    conditionBase: 82,
-    riskBase: 35,
+    conditionBase: previous ? Math.round(previous.conditionIndex * 0.9 + 8) : 82,
+    riskBase: previous ? Math.round(previous.riskScore * 0.7) : 35,
   })
   const conditionIndex = avgCondition(elements)
   const today = new Date().toISOString().slice(0, 10)
   const next = new Date()
   next.setFullYear(next.getFullYear() + 1)
+  const updateNote =
+    draft.notes?.trim() ||
+    (previous
+      ? `Updated model · ${familyLabel(draft.family)}`
+      : `Created from Appendix C ${familyLabel(draft.family)} template`)
+
+  const inspection = {
+    id: `i-${draft.id}-${Date.now()}`,
+    date: today,
+    inspector: 'Model builder',
+    summary: updateNote,
+    score: conditionIndex,
+  }
 
   return {
     id: draft.id,
@@ -110,38 +127,66 @@ export function buildStructureFromDraft(draft: StructureDraft): BridgeAsset {
     kind,
     family: draft.family,
     source: 'user',
-    createdAt: new Date().toISOString(),
+    createdAt: previous?.createdAt ?? new Date().toISOString(),
     owner: draft.owner,
-    status: 'operational',
+    status: previous?.status ?? 'operational',
     lastInspection: today,
-    nextInspectionDue: next.toISOString().slice(0, 10),
+    nextInspectionDue: previous?.nextInspectionDue ?? next.toISOString().slice(0, 10),
     conditionIndex,
     conditionBand: bandFromScore(conditionIndex),
-    riskLevel: 'low',
-    riskScore: 28,
+    riskLevel: previous?.riskLevel ?? 'low',
+    riskScore: previous?.riskScore ?? 28,
     remainingLifeYears: Math.max(20, 100 - (new Date().getFullYear() - draft.yearBuilt)),
-    photoLabel: kind === 'culvert' ? 'Culvert model' : 'Bridge model',
+    photoLabel:
+      previous?.photoLabel ?? (kind === 'culvert' ? 'Culvert model' : 'Bridge model'),
     elements,
-    defects: [],
-    inspections: [
-      {
-        id: `i-${draft.id}-1`,
-        date: today,
-        inspector: 'Model builder',
-        summary: draft.notes?.trim() || `Created from Appendix C ${familyLabel(draft.family)} template`,
-        score: conditionIndex,
-      },
-    ],
-    documents: { drawings: 0, reports: 0, photos: 0 },
-    riskBreakdown: {
+    defects: previous?.defects ?? [],
+    inspections: [inspection, ...(previous?.inspections ?? [])].slice(0, 12),
+    documents: previous?.documents ?? { drawings: 0, reports: 0, photos: 0 },
+    riskBreakdown: previous?.riskBreakdown ?? {
       structural: 20,
       hydraulic: kind === 'culvert' ? 35 : 18,
       seismic: 18,
       traffic: 16,
       other: 11,
     },
-    maintenanceForecast: forecast(0.35),
+    maintenanceForecast: previous?.maintenanceForecast ?? forecast(0.35),
     heatmap: heatFromElements(Math.max(1, draft.spans), elements),
+  }
+}
+
+export function draftFromStructure(structure: BridgeAsset): StructureDraft {
+  const family =
+    structure.family ??
+    (structure.kind === 'culvert' ? 'box-culvert' : 'girder')
+  const scheduleNos = [...new Set(structure.elements.map((e) => e.scheduleNo))].sort(
+    (a, b) => a - b,
+  )
+  const girderCount = Math.max(
+    1,
+    structure.elements.filter((e) => e.scheduleNo === 201).length || 4,
+  )
+
+  return {
+    id: structure.id,
+    name: structure.name,
+    road: structure.road,
+    region: structure.region,
+    city: structure.city,
+    lat: structure.lat,
+    lng: structure.lng,
+    yearBuilt: structure.yearBuilt,
+    lengthM: structure.lengthM,
+    spans: structure.spans,
+    deckWidthM: structure.deckWidthM ?? 12,
+    material: structure.material,
+    owner: structure.owner,
+    family,
+    girderCountPerSpan: girderCount,
+    includeElementNos: scheduleNos.length
+      ? scheduleNos
+      : elementsForFamily(family).map((e) => e.no),
+    notes: '',
   }
 }
 

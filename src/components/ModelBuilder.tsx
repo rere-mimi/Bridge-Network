@@ -10,6 +10,7 @@ import {
 } from '../data/elementSchedule'
 import {
   buildStructureFromDraft,
+  draftFromStructure,
   kindFromFamily,
   nextStructureId,
   type StructureDraft,
@@ -35,35 +36,49 @@ const MATERIALS = [
 
 type ModelBuilderProps = {
   existingIds: string[]
-  onCreated: (structure: BridgeAsset) => void
+  /** When set, builder opens in edit mode for this structure */
+  initialStructure?: BridgeAsset | null
+  onSaved: (structure: BridgeAsset) => void
   onCancel: () => void
 }
 
 type Step = 1 | 2 | 3 | 4 | 5
 
-export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderProps) {
+export function ModelBuilder({
+  existingIds,
+  initialStructure = null,
+  onSaved,
+  onCancel,
+}: ModelBuilderProps) {
+  const editing = !!initialStructure
+  const seed = initialStructure ? draftFromStructure(initialStructure) : null
+
   const [step, setStep] = useState<Step>(1)
-  const [kind, setKind] = useState<'bridge' | 'culvert'>('bridge')
-  const [family, setFamily] = useState<StructureFamily>('girder')
-  const [material, setMaterial] = useState('Reinforced concrete')
-  const [name, setName] = useState('')
-  const [road, setRoad] = useState('')
-  const [region, setRegion] = useState('')
-  const [city, setCity] = useState('')
-  const [owner, setOwner] = useState('')
-  const [yearBuilt, setYearBuilt] = useState(2000)
-  const [lengthM, setLengthM] = useState(40)
-  const [spans, setSpans] = useState(2)
-  const [deckWidthM, setDeckWidthM] = useState(12)
-  const [girderCount, setGirderCount] = useState(4)
-  const [lat, setLat] = useState(-41.28)
-  const [lng, setLng] = useState(174.77)
+  const [kind, setKind] = useState<'bridge' | 'culvert'>(
+    seed ? kindFromFamily(seed.family) : 'bridge',
+  )
+  const [family, setFamily] = useState<StructureFamily>(seed?.family ?? 'girder')
+  const [material, setMaterial] = useState(seed?.material ?? 'Reinforced concrete')
+  const [name, setName] = useState(seed?.name ?? '')
+  const [road, setRoad] = useState(seed?.road ?? '')
+  const [region, setRegion] = useState(seed?.region ?? '')
+  const [city, setCity] = useState(seed?.city ?? '')
+  const [owner, setOwner] = useState(seed?.owner ?? '')
+  const [yearBuilt, setYearBuilt] = useState(seed?.yearBuilt ?? 2000)
+  const [lengthM, setLengthM] = useState(seed?.lengthM ?? 40)
+  const [spans, setSpans] = useState(seed?.spans ?? 2)
+  const [deckWidthM, setDeckWidthM] = useState(seed?.deckWidthM ?? 12)
+  const [girderCount, setGirderCount] = useState(seed?.girderCountPerSpan ?? 4)
+  const [lat, setLat] = useState(seed?.lat ?? -41.28)
+  const [lng, setLng] = useState(seed?.lng ?? 174.77)
   const [notes, setNotes] = useState('')
-  const [selectedNos, setSelectedNos] = useState<number[]>(() =>
-    elementsForFamily('girder').map((e) => e.no),
+  const [selectedNos, setSelectedNos] = useState<number[]>(
+    () => seed?.includeElementNos ?? elementsForFamily('girder').map((e) => e.no),
   )
 
-  const structureId = useMemo(() => nextStructureId(existingIds), [existingIds])
+  const structureId = editing
+    ? initialStructure!.id
+    : nextStructureId(existingIds.filter((id) => id !== seed?.id))
   const catalogue = useMemo(() => elementsForFamily(family), [family])
   const preferredMaterial = materialFromBridge(material)
 
@@ -125,7 +140,7 @@ export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderP
       includeElementNos: selectedNos,
       notes,
     }
-    onCreated(buildStructureFromDraft(draft))
+    onSaved(buildStructureFromDraft(draft, initialStructure ?? undefined))
   }
 
   return (
@@ -133,14 +148,15 @@ export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderP
       <header className="model-builder-header">
         <div>
           <p className="eyebrow">Appendix C / F model builder</p>
-          <h1>Create structure model</h1>
+          <h1>{editing ? 'Edit structure model' : 'Create structure model'}</h1>
           <p>
-            Build a bridge or culvert from the standard element schedule, assign dimensions and
-            material, then save it into your local database.
+            {editing
+              ? 'Update identity, location, dimensions, material, or Appendix C elements, then save back to your database.'
+              : 'Build a bridge or culvert from the standard element schedule, assign dimensions and material, then save it into your local database.'}
           </p>
         </div>
         <div className="model-builder-id">
-          <span>Assigned ID</span>
+          <span>{editing ? 'Structure ID' : 'Assigned ID'}</span>
           <strong>{structureId}</strong>
         </div>
       </header>
@@ -385,8 +401,9 @@ export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderP
             })}
           </div>
           <p className="model-summary">
-            Will create <strong>{selectedNos.length}</strong> element types across location groups for{' '}
-            <strong>{structureId}</strong> · {familyLabel(family)}.
+            Will {editing ? 'update' : 'create'} <strong>{selectedNos.length}</strong> element types
+            across location groups for <strong>{structureId}</strong> · {familyLabel(family)}.
+            {editing ? ' Existing defects and inspection history are kept.' : ''}
           </p>
         </section>
       )}
@@ -417,7 +434,7 @@ export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderP
               disabled={!canContinue()}
               onClick={create}
             >
-              Save to database
+              {editing ? 'Save changes' : 'Save to database'}
             </button>
           )}
         </div>

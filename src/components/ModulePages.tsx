@@ -11,11 +11,13 @@ type ModulePagesProps = {
   bridges: BridgeAsset[]
   allBridges: BridgeAsset[]
   selectedId: string
+  editingId: string | null
   onSelectBridge: (id: string) => void
   onOpenOverview: () => void
   onOpenInspections: () => void
   onOpenCreateModel: () => void
-  onCreated: (structure: BridgeAsset) => void
+  onEditStructure: (id: string) => void
+  onSaved: (structure: BridgeAsset) => void
   onDeleteUserStructure: (id: string) => void
   onExportDatabase: () => void
 }
@@ -40,16 +42,21 @@ export function ModulePages({
   bridges,
   allBridges,
   selectedId,
+  editingId,
   onSelectBridge,
   onOpenOverview,
   onOpenInspections,
   onOpenCreateModel,
-  onCreated,
+  onEditStructure,
+  onSaved,
   onDeleteUserStructure,
   onExportDatabase,
 }: ModulePagesProps) {
   const page = resolveActivePage(module, sidebar)
   const bridge = bridges.find((b) => b.id === selectedId) ?? bridges[0] ?? allBridges[0]
+  const editingStructure = editingId
+    ? allBridges.find((b) => b.id === editingId) ?? null
+    : null
   const alerts = bridges.filter(
     (b) =>
       b.riskLevel === 'high' ||
@@ -68,8 +75,10 @@ export function ModulePages({
     return (
       <main className="module-page">
         <ModelBuilder
+          key={editingStructure?.id ?? 'new'}
           existingIds={allBridges.map((b) => b.id)}
-          onCreated={onCreated}
+          initialStructure={editingStructure}
+          onSaved={onSaved}
           onCancel={onOpenOverview}
         />
       </main>
@@ -149,6 +158,13 @@ export function ModulePages({
                         }}
                       >
                         Open twin
+                      </button>
+                      <button
+                        type="button"
+                        className="page-btn"
+                        onClick={() => onEditStructure(item.id)}
+                      >
+                        Edit
                       </button>
                       {item.source === 'user' && (
                         <button

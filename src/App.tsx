@@ -47,6 +47,7 @@ export default function App() {
   const [sidebar, setSidebar] = useState<SidebarId>('home')
   const [structures, setStructures] = useState<BridgeAsset[]>(() => loadStructureDatabase())
   const [selectedId, setSelectedId] = useState(() => loadStructureDatabase()[0]?.id ?? '10001')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [viewMode, setViewMode] = useState<'3d' | 'section' | 'map' | 'drawings'>('3d')
   const [selectedPanel, setSelectedPanel] = useState<string | null>('viewer')
@@ -88,24 +89,41 @@ export default function App() {
   function goOverview() {
     setModule('overview')
     setSidebar('home')
+    setEditingId(null)
   }
 
   function goModule(id: PlatformModule) {
     setModule(id)
     setSidebar('home')
+    if (id !== 'create-model') setEditingId(null)
   }
 
   function goSidebar(id: SidebarId) {
     setSidebar(id)
     if (id === 'home') setModule('overview')
     if (id === 'assets') setModule('assets')
+    setEditingId(null)
   }
 
-  function handleCreated(structure: BridgeAsset) {
+  function handleSaved(structure: BridgeAsset) {
     const next = saveUserStructure(structure)
     setStructures(next)
     setSelectedId(structure.id)
+    setEditingId(null)
     setModule('overview')
+    setSidebar('home')
+  }
+
+  function handleEdit(id: string) {
+    setSelectedId(id)
+    setEditingId(id)
+    setModule('create-model')
+    setSidebar('home')
+  }
+
+  function handleOpenCreateModel() {
+    setEditingId(null)
+    setModule('create-model')
     setSidebar('home')
   }
 
@@ -130,7 +148,7 @@ export default function App() {
       <div className="twin-app">
         <main className="module-page">
           <p>No structures in the database yet.</p>
-          <button type="button" className="page-btn primary" onClick={() => goModule('create-model')}>
+          <button type="button" className="page-btn primary" onClick={handleOpenCreateModel}>
             Create model
           </button>
         </main>
@@ -189,7 +207,9 @@ export default function App() {
                   ? 'active'
                   : ''
               }
-              onClick={() => goModule(item.id)}
+              onClick={() =>
+                item.id === 'create-model' ? handleOpenCreateModel() : goModule(item.id)
+              }
             >
               {item.label}
             </button>
@@ -232,11 +252,13 @@ export default function App() {
             bridges={filtered}
             allBridges={structures}
             selectedId={bridge.id}
+            editingId={editingId}
             onSelectBridge={setSelectedId}
             onOpenOverview={goOverview}
             onOpenInspections={() => goModule('inspections')}
-            onOpenCreateModel={() => goModule('create-model')}
-            onCreated={handleCreated}
+            onOpenCreateModel={handleOpenCreateModel}
+            onEditStructure={handleEdit}
+            onSaved={handleSaved}
             onDeleteUserStructure={handleDelete}
             onExportDatabase={handleExport}
           />
@@ -444,7 +466,12 @@ export default function App() {
                   </p>
                   <h1>{bridge.name}</h1>
                 </div>
-                <span className={`status status-${bridge.status}`}>{bridge.status}</span>
+                <div className="selected-heading-actions">
+                  <button type="button" className="page-btn" onClick={() => handleEdit(bridge.id)}>
+                    Edit model
+                  </button>
+                  <span className={`status status-${bridge.status}`}>{bridge.status}</span>
+                </div>
               </div>
 
               <ResizablePanel
