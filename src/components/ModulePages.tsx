@@ -147,7 +147,7 @@ export function ModulePages({
       {page === 'condition' && (
         <PageShell
           title="Condition"
-          subtitle="Element condition bands and network condition index."
+          subtitle="Appendix C element schedule with condition scores by group (AP/A/P/S)."
         >
           <div className="page-kpi-row">
             {bridges.map((item) => (
@@ -172,8 +172,8 @@ export function ModulePages({
                   <tr>
                     <th>ID</th>
                     <th>No.</th>
-                    <th>Code</th>
-                    <th>Component</th>
+                    <th>Element</th>
+                    <th>Category</th>
                     <th>Group</th>
                     <th>Qty</th>
                     <th>Condition</th>
@@ -187,8 +187,8 @@ export function ModulePages({
                         <code>{el.id}</code>
                       </td>
                       <td>{el.scheduleNo}</td>
-                      <td>{el.code}</td>
                       <td>{el.name}</td>
+                      <td>{el.category}</td>
                       <td>{el.groupId}</td>
                       <td>
                         {el.totalQuantity} {el.unit}

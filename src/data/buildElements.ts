@@ -1,9 +1,11 @@
 import {
-  componentsForFamily,
+  descriptionForElement,
+  elementsForFamily,
   groupLabel,
-  type ComponentGroup,
+  materialFromBridge,
+  type ElementGroup,
   type StructureFamily,
-} from './componentCatalogue'
+} from './elementSchedule'
 import type { BridgeElement, ConditionBand } from '../types'
 
 function bandFromScore(score: number): ConditionBand {
@@ -23,7 +25,7 @@ function hashScore(seed: string, base: number, spread = 18): number {
 
 function defaultQuantity(
   unit: BridgeElement['unit'],
-  group: ComponentGroup,
+  group: ElementGroup,
   spanLengthM: number,
   deckWidthM: number,
 ): number {
@@ -32,10 +34,9 @@ function defaultQuantity(
     return Math.round(deckWidthM * 4)
   }
   if (unit === 'm') {
-    if (group === 'span') return Math.round(spanLengthM * (unit === 'm' ? 2 : 1))
+    if (group === 'span') return Math.round(spanLengthM * 2)
     return Math.round(deckWidthM)
   }
-  // each
   if (group === 'span') return 4
   if (group === 'pier') return 2
   return 1
@@ -48,19 +49,22 @@ export type BuildElementsOptions = {
   deckWidthM?: number
   conditionBase?: number
   riskBase?: number
-  /** Prefer open girders vs box vs arch component set */
   girderCountPerSpan?: number
+  /** Bridge material string used to pick Appendix F material variant */
+  material?: string
 }
 
 /**
- * Build Appendix B inventory instances for a bridge.
- * Groups follow Table B2 designations:
+ * Build Appendix C inventory instances for a bridge.
+ * Groups follow Table C2 designations:
+ * - Approaches AP1, AP2
  * - Abutments A1, A2
  * - Piers P1..P(spans-1)
- * - Spans S1..Sn  (incremented per span)
- * - Approaches AP1, AP2
+ * - Spans S1..Sn
+ *
+ * Element IDs use schedule numbers, e.g. S1-200, S2-201-4, P1-404.
  */
-export function buildAppendixBElements(options: BuildElementsOptions): BridgeElement[] {
+export function buildAppendixCElements(options: BuildElementsOptions): BridgeElement[] {
   const {
     spans,
     lengthM,
@@ -69,96 +73,102 @@ export function buildAppendixBElements(options: BuildElementsOptions): BridgeEle
     conditionBase = 75,
     riskBase = 45,
     girderCountPerSpan = 4,
+    material = 'Concrete',
   } = options
 
   const spanLength = lengthM / Math.max(spans, 1)
-  const catalogue = componentsForFamily(family)
+  const catalogue = elementsForFamily(family)
+  const preferredMaterial = materialFromBridge(material)
   const elements: BridgeElement[] = []
 
-  const pushGroup = (group: ComponentGroup, index: number) => {
+  const pushGroup = (group: ElementGroup, index: number) => {
     const groupId = groupLabel(group, index)
-    for (const comp of catalogue) {
-      if (!comp.groups.includes(group)) continue
+    for (const el of catalogue) {
+      if (!el.groups.includes(group)) continue
 
-      // Prefer one joint type / one bearing type / one girder type per group
-      if (comp.no === 11 || comp.no === 15) continue
-      if (comp.no === 40 || comp.no === 41) continue
-      if (family === 'girder' && comp.no === 21) continue
-      if (family === 'box' && comp.no === 22) continue
-      if (family !== 'arch' && comp.no === 25) continue
-      if (family === 'arch' && (comp.no === 21 || comp.no === 22)) continue
-      if (comp.no === 55 && group !== 'pier') continue
-      if (comp.no === 54 && group === 'pier') continue // use integral headstock on piers
+      // Prefer one joint / bearing type per group
+      if ([101, 102, 103, 104, 105, 106, 107, 108].includes(el.no)) continue
+      if ([300, 301, 303, 304, 305].includes(el.no)) continue
+      if (family === 'girder' && el.no === 202) continue
+      if (family === 'box' && el.no === 201) continue
+      if (family !== 'arch' && (el.no === 204 || el.no === 205 || el.no === 207)) continue
+      if (family === 'arch' && (el.no === 201 || el.no === 202)) continue
 
-      let quantity = defaultQuantity(comp.unit, group, spanLength, deckWidthM)
-      if (comp.no === 22) quantity = girderCountPerSpan
-      if (comp.no === 42) quantity = girderCountPerSpan
-      if (comp.no === 2 || comp.no === 3) quantity = Math.round(spanLength * 2)
+      let quantity = defaultQuantity(el.unit, group, spanLength, deckWidthM)
+      if (el.no === 201 || el.no === 202) quantity = girderCountPerSpan
+      if (el.no === 302) quantity = girderCountPerSpan
+      if (el.no === 2 || el.no === 3) quantity = Math.round(spanLength * 2)
+      if (el.no === 404 || el.no === 407) quantity = group === 'pier' ? 2 : 4
 
-      // For open girders, create one inventory row per girder line on the span
-      if (comp.no === 22 && group === 'span') {
+      const desc = descriptionForElement(el.no, preferredMaterial)
+
+      // Open beams: one inventory row per beam line on the span
+      if (el.no === 201 && group === 'span') {
         for (let g = 1; g <= girderCountPerSpan; g++) {
-          const id = `${groupId}-${comp.code}${g}`
+          const id = `${groupId}-${el.no}-${g}`
           const conditionScore = hashScore(id, conditionBase - 4)
           const riskScore = hashScore(`${id}-r`, riskBase + 8)
           elements.push({
             id,
-            code: comp.code,
-            scheduleNo: comp.no,
-            name: `${comp.name} ${g}`,
-            category: comp.category,
+            code: String(el.no),
+            scheduleNo: el.no,
+            name: `${el.name} ${g}`,
+            category: el.category,
             group,
             groupId,
-            significance: comp.significance,
-            unit: comp.unit,
+            significance: el.significance as 1 | 2 | 3 | 4,
+            unit: el.unit,
             totalQuantity: 1,
             conditionScore,
             riskScore,
             band: bandFromScore(conditionScore),
+            material: desc?.material ?? preferredMaterial,
+            descriptionTitle: desc?.title,
+            description: desc?.description,
           })
         }
         continue
       }
 
-      const id = `${groupId}-${comp.code}`
+      const id = `${groupId}-${el.no}`
       const conditionScore = hashScore(id, conditionBase)
       const riskScore = hashScore(`${id}-r`, riskBase)
       elements.push({
         id,
-        code: comp.code,
-        scheduleNo: comp.no,
-        name: comp.name,
-        category: comp.category,
+        code: String(el.no),
+        scheduleNo: el.no,
+        name: el.name,
+        category: el.category,
         group,
         groupId,
-        significance: comp.significance,
-        unit: comp.unit,
+        significance: el.significance as 1 | 2 | 3 | 4,
+        unit: el.unit,
         totalQuantity: quantity,
         conditionScore,
         riskScore,
         band: bandFromScore(conditionScore),
+        material: desc?.material ?? preferredMaterial,
+        descriptionTitle: desc?.title,
+        description: desc?.description,
       })
     }
   }
 
-  // Approaches
   pushGroup('approach', 1)
   pushGroup('approach', 2)
-
-  // Abutments
   pushGroup('abutment', 1)
 
-  // Spans incremented S1..Sn, with piers between them
   for (let s = 1; s <= spans; s++) {
     pushGroup('span', s)
     if (s < spans) pushGroup('pier', s)
   }
 
-  // Far abutment
   pushGroup('abutment', 2)
-
   return elements
 }
+
+/** @deprecated Prefer buildAppendixCElements — kept as alias for existing imports. */
+export const buildAppendixBElements = buildAppendixCElements
 
 export function elementsByGroup(elements: BridgeElement[]) {
   const map = new Map<string, BridgeElement[]>()

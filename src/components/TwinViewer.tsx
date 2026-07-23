@@ -43,23 +43,23 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   const pierIdx = Math.min(midSpan, Math.max(1, bridge.spans - 1))
 
   const pier =
-    bridge.elements.find((e) => e.id === `P${pierIdx}-C`) ??
-    bridge.elements.find((e) => e.group === 'pier' && e.code === 'C') ??
-    bridge.elements.find((e) => e.group === 'pier' && e.code === 'H')
+    bridge.elements.find((e) => e.id === `P${pierIdx}-404`) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.code === '404') ??
+    bridge.elements.find((e) => e.group === 'pier' && e.code === '402')
 
   const girder =
-    bridge.elements.find((e) => e.id === `S${midSpan}-G4`) ??
-    bridge.elements.find((e) => e.groupId === `S${midSpan}` && e.code === 'G') ??
-    bridge.elements.find((e) => e.code === 'G' || e.code === 'ARH')
+    bridge.elements.find((e) => e.id === `S${midSpan}-201-4`) ??
+    bridge.elements.find((e) => e.groupId === `S${midSpan}` && e.code === '201') ??
+    bridge.elements.find((e) => e.code === '202' || e.code === '205')
 
   const bearing =
-    bridge.elements.find((e) => e.id === `P${pierIdx}-B`) ??
-    bridge.elements.find((e) => e.group === 'pier' && e.code === 'B') ??
-    bridge.elements.find((e) => e.code === 'B')
+    bridge.elements.find((e) => e.id === `P${pierIdx}-302`) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.code === '302') ??
+    bridge.elements.find((e) => e.code === '302')
 
   const deck =
-    bridge.elements.find((e) => e.id === `S${midSpan}-D`) ??
-    bridge.elements.find((e) => e.group === 'span' && e.code === 'D')
+    bridge.elements.find((e) => e.id === `S${midSpan}-200`) ??
+    bridge.elements.find((e) => e.group === 'span' && e.code === '200')
 
   const spots: Hotspot[] = []
   if (pier) {
@@ -456,26 +456,26 @@ export function TwinViewer({
         <button
           type="button"
           className={defectTool === 'crack' ? 'active danger' : ''}
-          title="Draw crack line"
+          title="Appendix E 1150 — Cracking (RC) line"
           onClick={() => setDefectTool((t) => (t === 'crack' ? null : 'crack'))}
         >
-          Crack line
+          Crack 1150
         </button>
         <button
           type="button"
           className={defectTool === 'spall' ? 'active warn' : ''}
-          title="Draw spall area"
+          title="Appendix E 1100 — Delamination/spall area"
           onClick={() => setDefectTool((t) => (t === 'spall' ? null : 'spall'))}
         >
-          Spall area
+          Spall 1100
         </button>
         <button
           type="button"
           className={defectTool === 'patch' ? 'active info' : ''}
-          title="Draw patch area"
+          title="Appendix E 3100 — Patched area"
           onClick={() => setDefectTool((t) => (t === 'patch' ? null : 'patch'))}
         >
-          Patch area
+          Patch 3100
         </button>
         {drawnDefects.length > 0 && (
           <button

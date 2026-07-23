@@ -924,6 +924,14 @@ p {
   margin-bottom: 0.65rem;
 }
 
+.element-description {
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0 0 0.75rem;
+  opacity: 0.9;
+}
+
 .element-actions {
   display: flex;
   flex-wrap: wrap;

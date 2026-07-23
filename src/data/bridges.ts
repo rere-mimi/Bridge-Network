@@ -1,5 +1,5 @@
 import type { BridgeAsset, ConditionBand } from '../types'
-import { buildAppendixBElements } from './buildElements'
+import { buildAppendixCElements } from './buildElements'
 
 function bandFromScore(score: number): ConditionBand {
   if (score >= 90) return 'excellent'
@@ -25,20 +25,21 @@ function forecast(base = 0.4) {
 
 function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
   const rows = [
-    { key: 'D', label: 'Deck' },
-    { key: 'G', label: 'Girders' },
-    { key: 'C', label: 'Columns/Piles' },
-    { key: 'B', label: 'Bearings' },
-    { key: 'H', label: 'Headstocks' },
+    { keys: ['200'], label: 'Deck' },
+    { keys: ['201', '202', '205'], label: 'Beams / arch' },
+    { keys: ['404', '407'], label: 'Columns / piles' },
+    { keys: ['302', '300', '301'], label: 'Bearings' },
+    { keys: ['402', '400'], label: 'Pier cap / abutment' },
   ]
   return rows.map((row) => ({
     element: row.label,
     spans: Array.from({ length: spans }, (_, i) => {
       const groupId = `S${i + 1}`
+      const pierId = `P${i + 1}`
       const match =
-        elements.find((e) => e.groupId === groupId && e.code === row.key) ??
-        elements.find((e) => e.groupId === `P${i + 1}` && e.code === row.key) ??
-        elements.find((e) => e.code === row.key)
+        elements.find((e) => e.groupId === groupId && row.keys.includes(e.code)) ??
+        elements.find((e) => e.groupId === pierId && row.keys.includes(e.code)) ??
+        elements.find((e) => row.keys.includes(e.code))
       return match?.band ?? ('fair' as ConditionBand)
     }),
   }))
@@ -51,12 +52,13 @@ function makeBridge(
     riskBase?: number
   },
 ): BridgeAsset {
-  const elements = buildAppendixBElements({
+  const elements = buildAppendixCElements({
     spans: partial.spans,
     lengthM: partial.lengthM,
     family: partial.family,
     conditionBase: partial.conditionBase ?? 75,
     riskBase: partial.riskBase ?? 45,
+    material: partial.material,
   })
   const conditionIndex = avgCondition(elements)
   const { family: _f, conditionBase: _c, riskBase: _r, ...rest } = partial
@@ -97,36 +99,40 @@ export const BRIDGES: BridgeAsset[] = [
     defects: [
       {
         id: 'd1',
-        elementCode: 'G',
-        elementName: 'S2-G4',
-        title: 'Spalling',
+        elementCode: '201',
+        elementName: 'S2-201-4',
+        title: 'Delamination/spall (Concrete/Masonry)',
+        defectCode: '1100',
         severity: 'high',
         status: 'open',
         date: '2026-02-12',
       },
       {
         id: 'd2',
-        elementCode: 'G',
-        elementName: 'S2-G4',
-        title: 'Rust staining',
+        elementCode: '201',
+        elementName: 'S2-201-4',
+        title: 'Efflorescence/rust staining',
+        defectCode: '1160',
         severity: 'medium',
         status: 'monitoring',
         date: '2026-02-12',
       },
       {
         id: 'd3',
-        elementCode: 'G',
-        elementName: 'S2-G4',
-        title: 'Longitudinal crack',
+        elementCode: '201',
+        elementName: 'S2-201-4',
+        title: 'Cracking (Reinforced concrete)',
+        defectCode: '1150',
         severity: 'medium',
         status: 'open',
         date: '2026-02-12',
       },
       {
         id: 'd4',
-        elementCode: 'C',
-        elementName: 'P2-C',
-        title: 'Surface deterioration',
+        elementCode: '404',
+        elementName: 'P2-404',
+        title: 'Abrasion/wear (Concrete)',
+        defectCode: '1170',
         severity: 'high',
         status: 'planned',
         date: '2026-02-12',
@@ -137,7 +143,7 @@ export const BRIDGES: BridgeAsset[] = [
         id: 'i1',
         date: '2026-02-12',
         inspector: 'A. Ngata',
-        summary: 'P2 columns and S2-G4 flagged for works',
+        summary: 'P2-404 and S2-201-4 flagged for works',
         score: 72,
       },
       {
@@ -192,9 +198,10 @@ export const BRIDGES: BridgeAsset[] = [
     defects: [
       {
         id: 'd5',
-        elementCode: 'B',
-        elementName: 'P3-B',
-        title: 'Movement restriction',
+        elementCode: '302',
+        elementName: 'P3-302',
+        title: 'Movement (Bearing)',
+        defectCode: '2000',
         severity: 'medium',
         status: 'monitoring',
         date: '2026-03-12',
@@ -246,9 +253,10 @@ export const BRIDGES: BridgeAsset[] = [
     defects: [
       {
         id: 'd6',
-        elementCode: 'ARH',
-        elementName: 'S1-ARH',
-        title: 'Moisture ingress',
+        elementCode: '205',
+        elementName: 'S1-205',
+        title: 'Efflorescence/rust staining',
+        defectCode: '1160',
         severity: 'high',
         status: 'open',
         date: '2026-01-20',
@@ -344,9 +352,10 @@ export const BRIDGES: BridgeAsset[] = [
     defects: [
       {
         id: 'd7',
-        elementCode: 'B',
-        elementName: 'A1-B',
-        title: 'Corrosion',
+        elementCode: '302',
+        elementName: 'A1-302',
+        title: 'Corrosion (General)',
+        defectCode: '1000',
         severity: 'high',
         status: 'planned',
         date: '2026-04-02',
@@ -398,9 +407,10 @@ export const BRIDGES: BridgeAsset[] = [
     defects: [
       {
         id: 'd8',
-        elementCode: 'ARH',
-        elementName: 'S3-ARH',
-        title: 'Section loss',
+        elementCode: '205',
+        elementName: 'S3-205',
+        title: 'Delamination/spall (Concrete/Masonry)',
+        defectCode: '1100',
         severity: 'critical',
         status: 'open',
         date: '2026-02-28',

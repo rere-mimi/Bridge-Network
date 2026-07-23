@@ -25,11 +25,11 @@ export type ConditionBand = 'excellent' | 'good' | 'fair' | 'poor' | 'critical'
 export type ComponentGroupKind = 'abutment' | 'pier' | 'span' | 'approach'
 
 export type BridgeElement = {
-  /** Unique instance id, e.g. S1-D or P2-H */
+  /** Unique instance id, e.g. S1-200 or P2-404-1 */
   id: string
-  /** Appendix B component code, e.g. D, G, H, B */
+  /** Appendix C element code (schedule number as string), e.g. "200", "404" */
   code: string
-  /** Appendix B schedule number */
+  /** Appendix C schedule number */
   scheduleNo: number
   name: string
   category: string
@@ -42,6 +42,12 @@ export type BridgeElement = {
   conditionScore: number
   riskScore: number
   band: ConditionBand
+  /** Appendix F material variant used for description */
+  material?: 'S' | 'P' | 'C' | 'T' | 'M' | 'O'
+  /** Appendix F element title */
+  descriptionTitle?: string
+  /** Appendix F detailed description (summary) */
+  description?: string
 }
 
 export type DefectRecord = {
@@ -49,6 +55,8 @@ export type DefectRecord = {
   elementCode: string
   elementName: string
   title: string
+  /** Appendix E defect type code when known */
+  defectCode?: string
   severity: 'low' | 'medium' | 'high' | 'critical'
   status: 'open' | 'monitoring' | 'planned' | 'closed'
   date: string
@@ -59,6 +67,8 @@ export type DrawnDefectKind = 'crack' | 'spall' | 'patch'
 export type DrawnDefect = {
   id: string
   kind: DrawnDefectKind
+  /** Appendix E defect type code */
+  defectCode: string
   points: Array<{ x: number; y: number }> // normalized 0-1 canvas coords
   label: string
   lengthM?: number

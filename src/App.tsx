@@ -450,9 +450,21 @@ export default function App() {
                   <div className="element-detail">
                     <h3>{activeElement.element.id}</h3>
                     <p className="element-meta">
-                      No.{activeElement.element.scheduleNo} · {activeElement.element.code} ·{' '}
+                      Appendix C No.{activeElement.element.scheduleNo} · {activeElement.element.name} ·{' '}
                       {activeElement.element.category} · {activeElement.element.groupId}
+                      {activeElement.element.material ? ` · (${activeElement.element.material})` : ''}
                     </p>
+                    {activeElement.element.description && (
+                      <>
+                        <p className="section-label">Appendix F description</p>
+                        <p className="element-description">
+                          {activeElement.element.descriptionTitle
+                            ? `${activeElement.element.descriptionTitle}. `
+                            : ''}
+                          {activeElement.element.description}
+                        </p>
+                      </>
+                    )}
                     <div className="element-actions">
                       <button
                         type="button"
@@ -493,6 +505,7 @@ export default function App() {
                           <div>
                             <strong>{defect.title}</strong>
                             <em>
+                              {defect.defectCode ? `E${defect.defectCode} · ` : ''}
                               {defect.elementName} · {defect.severity}
                             </em>
                           </div>
@@ -514,6 +527,8 @@ export default function App() {
                               <div>
                                 <strong>{defect.label}</strong>
                                 <em>
+                                  E{defect.defectCode}
+                                  {' · '}
                                   {defect.kind === 'crack'
                                     ? `${defect.lengthM ?? 0} m`
                                     : `${defect.areaM2 ?? 0} m²`}

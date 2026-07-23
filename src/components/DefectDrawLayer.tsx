@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DRAW_TOOL_DEFECTS, labelForDrawnDefect } from '../data/defectTypes'
 import type { DrawnDefect, DrawnDefectKind } from '../types'
 
 type Point = { x: number; y: number }
@@ -11,6 +12,8 @@ type DefectDrawLayerProps = {
   bridgeWidthM?: number
   onComplete: (defect: DrawnDefect) => void
   selectedElementId?: string | null
+  /** Optional Appendix E override for the active tool */
+  defectCode?: string
 }
 
 function dist(a: Point, b: Point) {
@@ -46,6 +49,7 @@ export function DefectDrawLayer({
   bridgeWidthM = 12,
   onComplete,
   selectedElementId,
+  defectCode,
 }: DefectDrawLayerProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [draft, setDraft] = useState<Point[]>([])
@@ -53,6 +57,7 @@ export function DefectDrawLayer({
   const draftRef = useRef<Point[]>([])
   const toolRef = useRef(tool)
   const onCompleteRef = useRef(onComplete)
+  const defectCodeRef = useRef(defectCode)
 
   useEffect(() => {
     draftRef.current = draft
@@ -65,6 +70,10 @@ export function DefectDrawLayer({
   useEffect(() => {
     onCompleteRef.current = onComplete
   }, [onComplete])
+
+  useEffect(() => {
+    defectCodeRef.current = defectCode
+  }, [defectCode])
 
   useEffect(() => {
     setDraft([])
@@ -82,12 +91,14 @@ export function DefectDrawLayer({
         ? points.slice(0, -1)
         : points
 
+    const code = defectCodeRef.current ?? DRAW_TOOL_DEFECTS[currentTool].code
+
     return {
       id: `drawn-${Date.now()}`,
       kind: currentTool,
+      defectCode: code,
       points: closed,
-      label:
-        currentTool === 'crack' ? 'Crack' : currentTool === 'spall' ? 'Spall' : 'Patch',
+      label: labelForDrawnDefect(currentTool, code),
       createdAt: new Date().toISOString(),
       elementId: selectedElementId ?? null,
       lengthM:
