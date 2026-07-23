@@ -3149,7 +3149,8 @@ button.linkish {
   line-height: 1.35;
 }
 
-.viewer-color-mode {
+.viewer-color-mode,
+.viewer-axis-window {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -3157,13 +3158,66 @@ button.linkish {
   color: var(--muted);
 }
 
-.viewer-color-mode select {
+.viewer-color-mode select,
+.viewer-axis-window select {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #0b1220;
   color: var(--text);
   padding: 0.3rem 0.45rem;
   font-size: 0.78rem;
+}
+
+.viewer-axis-window select {
+  min-width: 9.5rem;
+}
+
+.axis-label-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.22rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(8, 15, 28, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  color: #e2e8f0;
+  white-space: nowrap;
+  line-height: 1.15;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  user-select: none;
+}
+
+.axis-label-chip strong {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #7dd3fc;
+}
+
+.axis-label-chip span {
+  font-size: 0.62rem;
+  color: #94a3b8;
+}
+
+.axis-window-badge {
+  top: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  text-transform: none;
+  border-radius: 10px;
+  max-width: min(18rem, 70%);
+}
+
+.axis-window-badge em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.68rem;
+  color: #94a3b8;
 }
 
 .model-choice-grid button {

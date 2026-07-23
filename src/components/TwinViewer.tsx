@@ -1,5 +1,5 @@
 import { Canvas, useThree } from '@react-three/fiber'
-import { ContactShadows, OrbitControls } from '@react-three/drei'
+import { ContactShadows, Html, OrbitControls } from '@react-three/drei'
 import {
   useEffect,
   useMemo,
@@ -23,6 +23,16 @@ import {
   type DefectFace,
 } from '../data/defectTypes'
 import { faceMetres } from '../data/defectMetrics'
+import {
+  axesInWindow,
+  axisWindowCaption,
+  buildAxisWindows,
+  elementInAxisWindow,
+  findAxisWindow,
+  needsAxisWindow,
+  type AxisWindow,
+  type BridgeAxis,
+} from '../data/bridgeAxes'
 import {
   buildSceneNodes,
   findSceneNode,
@@ -107,9 +117,12 @@ function HighlightableMesh({
 function CameraFocus({
   isolate,
   target,
+  windowCentreX,
 }: {
   isolate: boolean
   target: [number, number, number] | null
+  /** When set (multi-span axis window), orbit around this X */
+  windowCentreX?: number | null
 }) {
   const { camera, controls } = useThree()
   const defaultPos = useRef(new THREE.Vector3(5.8, 3.4, 6.8))
@@ -135,14 +148,46 @@ function CameraFocus({
       return
     }
 
+    if (windowCentreX != null) {
+      const pivot = new THREE.Vector3(windowCentreX, 0.85, 0)
+      orbit.target.copy(pivot)
+      camera.position.set(windowCentreX + 3.2, 2.8, 5.2)
+      orbit.minDistance = 2
+      orbit.maxDistance = 14
+      orbit.update()
+      return
+    }
+
     camera.position.copy(defaultPos.current)
     orbit.target.copy(defaultTarget.current)
     orbit.minDistance = 3
     orbit.maxDistance = 18
     orbit.update()
-  }, [isolate, target, camera, controls])
+  }, [isolate, target, windowCentreX, camera, controls])
 
   return null
+}
+
+function AxisLabelMarkers({ axes }: { axes: BridgeAxis[] }) {
+  return (
+    <group>
+      {axes.map((axis) => (
+        <group key={axis.index} position={[axis.xScene, 2.15, 0]}>
+          {/* Vertical axis tick */}
+          <mesh position={[0, -0.85, 0]}>
+            <boxGeometry args={[0.04, 1.7, 0.04]} />
+            <meshStandardMaterial color="#38bdf8" transparent opacity={0.55} />
+          </mesh>
+          <Html center distanceFactor={14} style={{ pointerEvents: 'none' }}>
+            <div className="axis-label-chip">
+              <strong>{axis.label}</strong>
+              <span>{axis.detail}</span>
+            </div>
+          </Html>
+        </group>
+      ))}
+    </group>
+  )
 }
 
 function SceneNodeMesh({
@@ -227,27 +272,34 @@ function BridgeModel({
   selectedId,
   isolate,
   colorMode,
+  axisWindow,
   onSelect,
 }: {
   bridge: BridgeAsset
   selectedId: string | null
   isolate: boolean
   colorMode: SceneColorMode
+  axisWindow: AxisWindow | null
   onSelect: (node: SceneNode) => void
 }) {
   const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
+  const visibleNodes = useMemo(
+    () => nodes.filter((n) => elementInAxisWindow(n.element, axisWindow)),
+    [nodes, axisWindow],
+  )
   const selected = findSceneNode(nodes, selectedId)
   const hideOthers = isolate && !!selected
   const imported = bridge.importedModel?.meshes ?? []
   const hasImport = imported.length > 0
+  const labelAxes = useMemo(() => axesInWindow(bridge, axisWindow), [bridge, axisWindow])
 
   return (
     <group>
       {/* Structural twin only — no ground, grass, water, or embankment */}
       <gridHelper args={[24, 24, '#1e293b', '#0f172a']} position={[0, -0.5, 0]} />
 
-      {/* Parametric twin */}
-      {nodes.map((node) => {
+      {/* Parametric twin — filtered to selected axis window when spans > 2 */}
+      {visibleNodes.map((node) => {
         const active = selectedId === node.element.id
         if (hideOthers && !active) return null
         return (
@@ -259,6 +311,8 @@ function BridgeModel({
           />
         )
       })}
+
+      <AxisLabelMarkers axes={labelAxes} />
 
       {hasImport && (
         <group>
@@ -331,6 +385,7 @@ export function TwinViewer({
   const [defectTool, setDefectTool] = useState<DrawnDefectKind | null>(null)
   const [defectFace, setDefectFace] = useState<DefectFace>('front')
   const [defectCode, setDefectCode] = useState<string | null>(null)
+  const [axisWindowId, setAxisWindowId] = useState<string | null>(null)
   const controlsRef = useRef(null)
 
   const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
@@ -342,6 +397,24 @@ export function TwinViewer({
   const drawingIn2d = !!defectTool && !!selectedElementId
   const show3d = viewMode === '3d' && !drawingIn2d
   const show2dDraw = drawingIn2d || viewMode === 'section'
+
+  const axisWindows = useMemo(() => buildAxisWindows(bridge), [bridge])
+  const showAxisPicker = needsAxisWindow(bridge)
+  const axisWindow = useMemo(
+    () => (showAxisPicker ? findAxisWindow(bridge, axisWindowId) : null),
+    [bridge, axisWindowId, showAxisPicker],
+  )
+
+  useEffect(() => {
+    // Reset / clamp window when structure or span count changes
+    if (!showAxisPicker) {
+      setAxisWindowId(null)
+      return
+    }
+    if (!axisWindowId || !axisWindows.some((w) => w.id === axisWindowId)) {
+      setAxisWindowId(axisWindows[0]?.id ?? null)
+    }
+  }, [bridge.id, bridge.spans, showAxisPicker, axisWindowId, axisWindows])
 
   const elementSizeM = selectedNode?.sizeM ?? {
     length: bridge.lengthM * 0.25,
@@ -485,6 +558,27 @@ export function TwinViewer({
           </button>
         )}
         <span className="toolbar-sep" />
+        {showAxisPicker && (
+          <label
+            className="viewer-axis-window"
+            title="Select which support axes to display (3-axis window)"
+          >
+            View axes
+            <select
+              value={axisWindow?.id ?? ''}
+              onChange={(e) => setAxisWindowId(e.target.value)}
+            >
+              {axisWindows.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.label} ({w.spanGroupIds.join('+')})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {showAxisPicker && (
+          <span className="toolbar-sep" />
+        )}
         <label className="viewer-color-mode" title="Mesh colour basis">
           Colour
           <select
@@ -604,6 +698,7 @@ export function TwinViewer({
                 selectedId={selectedElementId}
                 isolate={isolate}
                 colorMode={colorMode}
+                axisWindow={axisWindow}
                 onSelect={handleElementSelect}
               />
               <ContactShadows opacity={0.35} scale={16} blur={2.5} far={8} />
@@ -616,7 +711,11 @@ export function TwinViewer({
                 minDistance={isolate ? 0.8 : 3}
                 maxDistance={isolate ? 8 : 16}
               />
-              <CameraFocus isolate={isolate} target={focusTarget} />
+              <CameraFocus
+                isolate={isolate}
+                target={focusTarget}
+                windowCentreX={!isolate && axisWindow ? axisWindow.centreX : null}
+              />
             </Canvas>
 
             {/* Read-only defect overlay on 3D when not drawing */}
@@ -688,8 +787,19 @@ export function TwinViewer({
                 ? 'Select an element first — then pick a defect tool to draw on its 2D face'
                 : isolate
                   ? 'Isolated · pick a defect tool to draw in 2D · or open popup section'
-                  : 'Click any element · pick Crack / Spall / Patch to draw in 2D'}
+                  : showAxisPicker
+                    ? `${axisWindowCaption(axisWindow, bridge.spans)} · change View axes to move along the bridge`
+                    : 'Click any element · pick Crack / Spall / Patch to draw in 2D'}
             </p>
+            {showAxisPicker && axisWindow && !isolate && (
+              <div className="isolate-badge axis-window-badge">
+                {axisWindow.label}
+                <em>
+                  {axisWindow.supportGroupIds.join(' · ')} · spans{' '}
+                  {axisWindow.spanGroupIds.join(', ')}
+                </em>
+              </div>
+            )}
             {isolate && selectedNode && (
               <div className="isolate-badge">
                 Isolated · {selectedNode.element.name} · add defect in the element panel
