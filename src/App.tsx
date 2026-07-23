@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BRIDGES, conditionLabel } from './data/bridges'
 import { MiniMap } from './components/MiniMap'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
-import type { BridgeElement, Filters, PlatformModule, SidebarId } from './types'
+import type { BridgeElement, DrawnDefect, Filters, PlatformModule, SidebarId } from './types'
 import './App.css'
 
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
@@ -38,8 +38,9 @@ export default function App() {
   const [sidebar, setSidebar] = useState<SidebarId>('home')
   const [selectedId, setSelectedId] = useState(BRIDGES[0].id)
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
-  const [viewMode, setViewMode] = useState<'3d' | 'map' | 'drawings'>('3d')
+  const [viewMode, setViewMode] = useState<'3d' | 'section' | 'map' | 'drawings'>('3d')
   const [selectedPanel, setSelectedPanel] = useState<string | null>('viewer')
+  const [drawnDefects, setDrawnDefects] = useState<DrawnDefect[]>([])
   const [viewerHeight, setViewerHeight] = useState(() => {
     if (typeof window === 'undefined') return 420
     const saved = window.localStorage.getItem('twin-panel-h:viewer-stage')
@@ -63,6 +64,11 @@ export default function App() {
   }, [filters])
 
   const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? BRIDGES[0]
+
+  useEffect(() => {
+    setDrawnDefects([])
+    setSelectedElement(null)
+  }, [bridge.id])
 
   const regions = [...new Set(BRIDGES.map((b) => b.region))]
   const types = [...new Set(BRIDGES.map((b) => b.structureType))]
@@ -356,7 +362,9 @@ export default function App() {
                   }}
                   viewMode={viewMode}
                   onViewMode={setViewMode}
-                  height={Math.max(220, viewerHeight - 52)}
+                  height={Math.max(220, viewerHeight - 96)}
+                  drawnDefects={drawnDefects}
+                  onDrawnDefectsChange={setDrawnDefects}
                 />
               </ResizablePanel>
             </div>
@@ -416,10 +424,34 @@ export default function App() {
                           </div>
                         </li>
                       ))}
-                      {bridge.defects.length === 0 && (
+                      {bridge.defects.length === 0 && drawnDefects.length === 0 && (
                         <li className="empty">No open defects</li>
                       )}
                     </ul>
+                    {drawnDefects.length > 0 && (
+                      <>
+                        <p className="section-label">Drawn defects</p>
+                        <ul className="defect-list">
+                          {drawnDefects.map((defect) => (
+                            <li key={defect.id}>
+                              <span
+                                className={`sev ${defect.kind === 'crack' ? 'sev-critical' : defect.kind === 'spall' ? 'sev-high' : 'sev-medium'}`}
+                              />
+                              <div>
+                                <strong>{defect.label}</strong>
+                                <em>
+                                  {defect.kind === 'crack'
+                                    ? `${defect.lengthM ?? 0} m`
+                                    : `${defect.areaM2 ?? 0} m²`}
+                                  {' · '}
+                                  {new Date(defect.createdAt).toLocaleTimeString()}
+                                </em>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
                     <p className="section-label">Documents & records</p>
                     <div className="doc-row">
                       <span>{bridge.documents.drawings} drawings</span>

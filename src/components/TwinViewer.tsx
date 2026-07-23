@@ -1,8 +1,22 @@
 import { Canvas } from '@react-three/fiber'
 import { ContactShadows, Html, OrbitControls } from '@react-three/drei'
-import { useMemo, useRef, type ComponentProps, type ReactNode } from 'react'
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import type { Mesh } from 'three'
-import type { BridgeAsset, BridgeElement, ConditionBand } from '../types'
+import { CrossSectionView } from './CrossSectionView'
+import { DefectDrawLayer } from './DefectDrawLayer'
+import type {
+  BridgeAsset,
+  BridgeElement,
+  ConditionBand,
+  DrawnDefect,
+  DrawnDefectKind,
+} from '../types'
 
 const BAND_COLOR: Record<ConditionBand, string> = {
   excellent: '#22c55e',
@@ -13,6 +27,7 @@ const BAND_COLOR: Record<ConditionBand, string> = {
 }
 
 type PartId = 'pier' | 'girder' | 'deck' | 'bearing'
+type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
 
 type Hotspot = {
   id: string
@@ -77,6 +92,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
 
 function HighlightableMesh({
   selected,
+  faded,
   color,
   emissive = '#7dd3fc',
   children,
@@ -84,6 +100,7 @@ function HighlightableMesh({
   ...props
 }: {
   selected: boolean
+  faded?: boolean
   color: string
   emissive?: string
   children: ReactNode
@@ -96,6 +113,7 @@ function HighlightableMesh({
       ref={ref}
       castShadow
       receiveShadow
+      visible={!faded}
       onClick={(e) => {
         e.stopPropagation()
         onSelect?.()
@@ -109,6 +127,8 @@ function HighlightableMesh({
         emissiveIntensity={selected ? 0.85 : 0}
         roughness={selected ? 0.35 : 0.7}
         metalness={selected ? 0.25 : 0.1}
+        transparent={faded}
+        opacity={faded ? 0.08 : 1}
       />
     </mesh>
   )
@@ -117,46 +137,57 @@ function HighlightableMesh({
 function BridgeModel({
   bridge,
   selectedId,
+  isolate,
   onSelect,
 }: {
   bridge: BridgeAsset
   selectedId: string | null
+  isolate: boolean
   onSelect: (hotspot: Hotspot) => void
 }) {
   const hotspots = useMemo(() => buildHotspots(bridge), [bridge])
   const spanCount = Math.min(Math.max(bridge.spans, 3), 6)
   const selected = hotspots.find((h) => h.id === selectedId) ?? null
   const selectedPart = selected?.part ?? null
+  const hideOthers = isolate && !!selectedPart
 
   const selectPart = (part: PartId) => {
     const spot = hotspots.find((h) => h.part === part)
     if (spot) onSelect(spot)
   }
 
+  const faded = (part: PartId) => hideOthers && selectedPart !== part
+
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]} receiveShadow>
-        <planeGeometry args={[18, 10]} />
-        <meshStandardMaterial color="#1d4f63" roughness={0.35} metalness={0.2} />
-      </mesh>
-
-      <mesh position={[-6.2, 0.05, 0]} castShadow>
-        <boxGeometry args={[3.5, 0.8, 8]} />
-        <meshStandardMaterial color="#3f4f46" />
-      </mesh>
-      <mesh position={[6.2, 0.05, 0]} castShadow>
-        <boxGeometry args={[3.5, 0.8, 8]} />
-        <meshStandardMaterial color="#3f4f46" />
-      </mesh>
+      {!hideOthers && (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]} receiveShadow>
+            <planeGeometry args={[18, 10]} />
+            <meshStandardMaterial color="#1d4f63" roughness={0.35} metalness={0.2} />
+          </mesh>
+          <mesh position={[-6.2, 0.05, 0]} castShadow>
+            <boxGeometry args={[3.5, 0.8, 8]} />
+            <meshStandardMaterial color="#3f4f46" />
+          </mesh>
+          <mesh position={[6.2, 0.05, 0]} castShadow>
+            <boxGeometry args={[3.5, 0.8, 8]} />
+            <meshStandardMaterial color="#3f4f46" />
+          </mesh>
+        </>
+      )}
 
       {Array.from({ length: spanCount - 1 }).map((_, i) => {
         const x = -3.5 + (i + 1) * (7 / spanCount)
         const isTargetPier = i === 1
         const lit = selectedPart === 'pier' && isTargetPier
+        const hidePier = hideOthers && selectedPart === 'pier' && !isTargetPier
+        if (hidePier) return null
         return (
           <group key={`pier-${i}`} position={[x, 0, 0]}>
             <HighlightableMesh
               selected={lit}
+              faded={faded('pier') && !isTargetPier}
               color="#9aa3a7"
               position={[0, 0.35, 0]}
               onSelect={() => selectPart('pier')}
@@ -165,6 +196,7 @@ function BridgeModel({
             </HighlightableMesh>
             <HighlightableMesh
               selected={lit}
+              faded={faded('pier') && !isTargetPier}
               color="#b0b8bc"
               position={[0, 0.95, 0]}
               onSelect={() => selectPart('pier')}
@@ -172,12 +204,7 @@ function BridgeModel({
               <boxGeometry args={[0.7, 0.18, 1.7]} />
             </HighlightableMesh>
             {lit && (
-              <pointLight
-                position={[0, 1.4, 0.8]}
-                intensity={2.4}
-                distance={4}
-                color="#7dd3fc"
-              />
+              <pointLight position={[0, 1.4, 0.8]} intensity={2.4} distance={4} color="#7dd3fc" />
             )}
           </group>
         )
@@ -185,6 +212,7 @@ function BridgeModel({
 
       <HighlightableMesh
         selected={selectedPart === 'deck'}
+        faded={faded('deck')}
         color="#6b7280"
         position={[0, 1.25, 0]}
         onSelect={() => selectPart('deck')}
@@ -197,10 +225,12 @@ function BridgeModel({
 
       {[-0.7, -0.25, 0.25, 0.7].map((z, i) => {
         const lit = selectedPart === 'girder' && i === 2
+        if (hideOthers && selectedPart === 'girder' && i !== 2) return null
         return (
           <group key={`girder-${i}`}>
             <HighlightableMesh
               selected={lit}
+              faded={faded('girder') && i !== 2}
               color="#4b5563"
               position={[0, 1.05, z]}
               onSelect={() => selectPart('girder')}
@@ -208,51 +238,47 @@ function BridgeModel({
               <boxGeometry args={[8.8, 0.28, 0.18]} />
             </HighlightableMesh>
             {lit && (
-              <pointLight
-                position={[0.4, 1.6, z]}
-                intensity={2.6}
-                distance={4.5}
-                color="#fde68a"
-              />
+              <pointLight position={[0.4, 1.6, z]} intensity={2.6} distance={4.5} color="#fde68a" />
             )}
           </group>
         )
       })}
 
-      <mesh position={[0, 1.55, 1.05]}>
-        <boxGeometry args={[9.2, 0.28, 0.08]} />
-        <meshStandardMaterial color="#d1d5db" />
-      </mesh>
-      <mesh position={[0, 1.55, -1.05]}>
-        <boxGeometry args={[9.2, 0.28, 0.08]} />
-        <meshStandardMaterial color="#d1d5db" />
-      </mesh>
+      {!hideOthers && (
+        <>
+          <mesh position={[0, 1.55, 1.05]}>
+            <boxGeometry args={[9.2, 0.28, 0.08]} />
+            <meshStandardMaterial color="#d1d5db" />
+          </mesh>
+          <mesh position={[0, 1.55, -1.05]}>
+            <boxGeometry args={[9.2, 0.28, 0.08]} />
+            <meshStandardMaterial color="#d1d5db" />
+          </mesh>
+          <mesh position={[0, 1.37, 0]}>
+            <boxGeometry args={[8.6, 0.01, 0.06]} />
+            <meshStandardMaterial color="#f8fafc" emissive="#94a3b8" emissiveIntensity={0.2} />
+          </mesh>
+        </>
+      )}
 
-      <mesh position={[0, 1.37, 0]}>
-        <boxGeometry args={[8.6, 0.01, 0.06]} />
-        <meshStandardMaterial color="#f8fafc" emissive="#94a3b8" emissiveIntensity={0.2} />
-      </mesh>
-
-      {/* bearing pads near left abutment */}
-      {[-0.6, 0, 0.6].map((z, i) => {
-        const lit = selectedPart === 'bearing'
-        return (
-          <HighlightableMesh
-            key={`bearing-${i}`}
-            selected={lit}
-            color="#78716c"
-            position={[-4.2, 1.05, z]}
-            onSelect={() => selectPart('bearing')}
-          >
-            <boxGeometry args={[0.35, 0.16, 0.28]} />
-          </HighlightableMesh>
-        )
-      })}
+      {[-0.6, 0, 0.6].map((z, i) => (
+        <HighlightableMesh
+          key={`bearing-${i}`}
+          selected={selectedPart === 'bearing'}
+          faded={faded('bearing')}
+          color="#78716c"
+          position={[-4.2, 1.05, z]}
+          onSelect={() => selectPart('bearing')}
+        >
+          <boxGeometry args={[0.35, 0.16, 0.28]} />
+        </HighlightableMesh>
+      ))}
       {selectedPart === 'bearing' && (
         <pointLight position={[-4.1, 1.5, 0]} intensity={2.1} distance={3.5} color="#fdba74" />
       )}
 
       {hotspots.map((spot) => {
+        if (hideOthers && spot.part !== selectedPart) return null
         const active = selectedId === spot.id
         const color = BAND_COLOR[spot.element.band]
         return (
@@ -299,6 +325,22 @@ function BridgeModel({
   )
 }
 
+function ScaleBar({ lengthM }: { lengthM: number }) {
+  const barM = lengthM >= 100 ? 20 : lengthM >= 40 ? 10 : 5
+  return (
+    <div className="scale-bar" aria-label={`Scale bar ${barM} metres`}>
+      <div className="scale-track">
+        <i />
+        <i />
+        <i />
+        <i />
+      </div>
+      <span>0</span>
+      <strong>{barM} m</strong>
+    </div>
+  )
+}
+
 type TwinViewerProps = {
   bridge: BridgeAsset
   selectedElementId: string | null
@@ -307,9 +349,11 @@ type TwinViewerProps = {
     label: string
     element: BridgeElement
   }) => void
-  viewMode: '3d' | 'map' | 'drawings'
-  onViewMode: (mode: '3d' | 'map' | 'drawings') => void
+  viewMode: ViewerTab
+  onViewMode: (mode: ViewerTab) => void
   height?: number
+  drawnDefects: DrawnDefect[]
+  onDrawnDefectsChange: (defects: DrawnDefect[]) => void
 }
 
 export function TwinViewer({
@@ -319,13 +363,27 @@ export function TwinViewer({
   viewMode,
   onViewMode,
   height,
+  drawnDefects,
+  onDrawnDefectsChange,
 }: TwinViewerProps) {
+  const [isolate, setIsolate] = useState(false)
+  const [showScale, setShowScale] = useState(true)
+  const [defectTool, setDefectTool] = useState<DrawnDefectKind | null>(null)
+
+  const hotspots = useMemo(() => buildHotspots(bridge), [bridge])
+  const selectedPart =
+    hotspots.find((h) => h.id === selectedElementId)?.part ?? null
+
+  const drawingActive =
+    !!defectTool && (viewMode === '3d' || viewMode === 'section')
+
   return (
     <section className="twin-viewer">
       <div className="viewer-tabs">
         {(
           [
             ['3d', '3D Model'],
+            ['section', '2D Cross section'],
             ['map', 'Map View'],
             ['drawings', 'Drawings'],
           ] as const
@@ -339,6 +397,69 @@ export function TwinViewer({
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="viewer-toolbar" role="toolbar" aria-label="Viewer tools">
+        <button
+          type="button"
+          className={isolate ? 'active' : ''}
+          disabled={!selectedElementId}
+          title="Isolate selected element"
+          onClick={() => setIsolate((v) => !v)}
+        >
+          Isolate
+        </button>
+        <button
+          type="button"
+          className={viewMode === 'section' ? 'active' : ''}
+          title="2D cross section"
+          onClick={() => onViewMode(viewMode === 'section' ? '3d' : 'section')}
+        >
+          2D section
+        </button>
+        <button
+          type="button"
+          className={showScale ? 'active' : ''}
+          title="Toggle scale bar"
+          onClick={() => setShowScale((v) => !v)}
+        >
+          Scale
+        </button>
+        <span className="toolbar-sep" />
+        <button
+          type="button"
+          className={defectTool === 'crack' ? 'active danger' : ''}
+          title="Draw crack line"
+          onClick={() => setDefectTool((t) => (t === 'crack' ? null : 'crack'))}
+        >
+          Crack line
+        </button>
+        <button
+          type="button"
+          className={defectTool === 'spall' ? 'active warn' : ''}
+          title="Draw spall area"
+          onClick={() => setDefectTool((t) => (t === 'spall' ? null : 'spall'))}
+        >
+          Spall area
+        </button>
+        <button
+          type="button"
+          className={defectTool === 'patch' ? 'active info' : ''}
+          title="Draw patch area"
+          onClick={() => setDefectTool((t) => (t === 'patch' ? null : 'patch'))}
+        >
+          Patch area
+        </button>
+        {drawnDefects.length > 0 && (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => onDrawnDefectsChange([])}
+            title="Clear drawn defects"
+          >
+            Clear drawings
+          </button>
+        )}
       </div>
 
       <div className="viewer-stage" style={height ? { height, minHeight: height } : undefined}>
@@ -356,6 +477,7 @@ export function TwinViewer({
               <BridgeModel
                 bridge={bridge}
                 selectedId={selectedElementId}
+                isolate={isolate}
                 onSelect={(spot) =>
                   onSelectElement({
                     id: spot.id,
@@ -367,16 +489,24 @@ export function TwinViewer({
               <ContactShadows opacity={0.35} scale={16} blur={2.5} far={8} />
               <OrbitControls
                 makeDefault
+                enabled={!drawingActive}
                 maxPolarAngle={Math.PI / 2.05}
                 minDistance={4}
                 maxDistance={14}
               />
             </Canvas>
-            <div className="viewer-tools" aria-hidden="true">
-              <span>↻</span>
-              <span>↔</span>
-              <span>⌕</span>
-            </div>
+
+            <DefectDrawLayer
+              active={drawingActive}
+              tool={defectTool}
+              defects={drawnDefects}
+              bridgeLengthM={bridge.lengthM}
+              selectedElementId={selectedElementId}
+              onComplete={(defect) =>
+                onDrawnDefectsChange([defect, ...drawnDefects])
+              }
+            />
+
             <div className="condition-scale">
               <p>Condition scale</p>
               {Object.entries(BAND_COLOR).map(([band, color]) => (
@@ -386,7 +516,48 @@ export function TwinViewer({
                 </div>
               ))}
             </div>
-            <p className="viewer-hint">Orbit · click an element for light highlight</p>
+
+            {showScale && <ScaleBar lengthM={bridge.lengthM} />}
+
+            <p className="viewer-hint">
+              {drawingActive
+                ? defectTool === 'crack'
+                  ? 'Click to place crack points · double-click / Enter / right-click to finish'
+                  : 'Click to place area points · click near start or Enter to close'
+                : isolate
+                  ? 'Isolate on · selected element only'
+                  : 'Orbit · select element · use toolbar tools'}
+            </p>
+            {isolate && selectedPart && (
+              <div className="isolate-badge">Isolated · {selectedPart}</div>
+            )}
+          </>
+        )}
+
+        {viewMode === 'section' && (
+          <>
+            <CrossSectionView
+              bridge={bridge}
+              isolatedPart={isolate ? selectedPart : null}
+              showScale={showScale}
+              defects={drawnDefects}
+            />
+            <DefectDrawLayer
+              active={drawingActive}
+              tool={defectTool}
+              defects={drawnDefects}
+              bridgeLengthM={bridge.lengthM}
+              selectedElementId={selectedElementId}
+              onComplete={(defect) =>
+                onDrawnDefectsChange([defect, ...drawnDefects])
+              }
+            />
+            {showScale && <ScaleBar lengthM={bridge.lengthM} />}
+            <p className="viewer-hint">
+              {drawingActive
+                ? 'Draw defects on the cross section'
+                : '2D cross section · toggle Isolate / Scale / defect tools'}
+            </p>
           </>
         )}
 

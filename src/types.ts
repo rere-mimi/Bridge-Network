@@ -43,6 +43,20 @@ export type DefectRecord = {
   date: string
 }
 
+export type DrawnDefectKind = 'crack' | 'spall' | 'patch'
+
+export type DrawnDefect = {
+  id: string
+  kind: DrawnDefectKind
+  points: Array<{ x: number; y: number }> // normalized 0-1 canvas coords
+  label: string
+  lengthM?: number
+  areaM2?: number
+  createdAt: string
+  elementId?: string | null
+}
+
+
 export type InspectionHistoryItem = {
   id: string
   date: string
