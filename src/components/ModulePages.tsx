@@ -4,6 +4,7 @@ import { conditionLabel } from '../data/bridges'
 import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
 import { ModelCataloguePanel } from './ModelCataloguePanel'
+import { MaintenanceActivitiesPanel } from './MaintenanceActivitiesPanel'
 import { NzNetworkMap } from './NzNetworkMap'
 import { ResizablePanel } from './ResizablePanel'
 
@@ -389,10 +390,10 @@ export function ModulePages({
       {page === 'maintenance' && (
         <PageShell
           title="Maintenance"
-          subtitle="Programme candidates and forecast envelope."
+          subtitle="Programme candidates, forecast envelope, and per-element activities."
         >
           <div className="page-grid-2">
-            <ResizablePanel title="Candidates" storageKey="maint-cand" defaultHeight={300}>
+            <ResizablePanel title="Candidates" storageKey="maint-cand" defaultHeight={260}>
               <ul className="page-list">
                 {alerts.map((item) => (
                   <li key={item.id}>
@@ -404,9 +405,14 @@ export function ModulePages({
                     </button>
                   </li>
                 ))}
+                {alerts.length === 0 && (
+                  <li>
+                    <em>No high-risk candidates in the current filter.</em>
+                  </li>
+                )}
               </ul>
             </ResizablePanel>
-            <ResizablePanel title="Forecast ($M)" storageKey="maint-fc" defaultHeight={300}>
+            <ResizablePanel title="Forecast ($M)" storageKey="maint-fc" defaultHeight={260}>
               <div className="page-table-wrap">
                 <table className="page-table">
                   <thead>
@@ -431,6 +437,7 @@ export function ModulePages({
               </div>
             </ResizablePanel>
           </div>
+          {bridge && <MaintenanceActivitiesPanel bridge={bridge} />}
         </PageShell>
       )}
 
