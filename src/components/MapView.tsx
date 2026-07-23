@@ -7,92 +7,88 @@ import {
   Tooltip,
   useMap,
 } from 'react-leaflet'
-import type { BridgeNode, NodeStatus } from '../types'
-import { statusLabel } from '../hooks/useLiveData'
+import type { BridgeAsset, RiskLevel } from '../types'
 import 'leaflet/dist/leaflet.css'
 
-const STATUS_COLOR: Record<NodeStatus, string> = {
-  online: '#1FA97A',
-  degraded: '#D97706',
-  offline: '#C2410C',
+const RISK_COLOR: Record<RiskLevel, string> = {
+  low: '#1FA97A',
+  moderate: '#D97706',
+  high: '#C2410C',
+  critical: '#9F1239',
 }
 
 type MapViewProps = {
-  nodes: BridgeNode[]
+  bridges: BridgeAsset[]
   selectedId: string | null
   onSelect: (id: string) => void
-  statusFilter: NodeStatus | 'all'
 }
 
 function FlyToSelected({
-  nodes,
+  bridges,
   selectedId,
 }: {
-  nodes: BridgeNode[]
+  bridges: BridgeAsset[]
   selectedId: string | null
 }) {
   const map = useMap()
 
   useEffect(() => {
     if (!selectedId) return
-    const node = nodes.find((n) => n.id === selectedId)
-    if (!node) return
-    map.flyTo([node.lat, node.lng], 6.2, { duration: 1.1 })
-  }, [map, nodes, selectedId])
+    const bridge = bridges.find((b) => b.id === selectedId)
+    if (!bridge) return
+    map.flyTo([bridge.lat, bridge.lng], 8.5, { duration: 1.05 })
+  }, [map, bridges, selectedId])
 
   return null
 }
 
-export function MapView({ nodes, selectedId, onSelect, statusFilter }: MapViewProps) {
-  const visible =
-    statusFilter === 'all' ? nodes : nodes.filter((n) => n.status === statusFilter)
-
+export function MapView({ bridges, selectedId, onSelect }: MapViewProps) {
   return (
     <MapContainer
-      center={[39.5, -98.35]}
-      zoom={4.2}
-      minZoom={3}
-      maxZoom={12}
+      center={[-41.2, 174.8]}
+      zoom={5.2}
+      minZoom={4}
+      maxZoom={14}
       className="map-canvas"
       zoomControl={false}
       attributionControl={false}
     >
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
+        attribution='&copy; OSM &copy; CARTO'
       />
-      <FlyToSelected nodes={nodes} selectedId={selectedId} />
-      {visible.map((node) => {
-        const selected = node.id === selectedId
-        const color = STATUS_COLOR[node.status]
+      <FlyToSelected bridges={bridges} selectedId={selectedId} />
+      {bridges.map((bridge) => {
+        const selected = bridge.id === selectedId
+        const color = RISK_COLOR[bridge.riskLevel]
         return (
           <CircleMarker
-            key={node.id}
-            center={[node.lat, node.lng]}
+            key={bridge.id}
+            center={[bridge.lat, bridge.lng]}
             radius={selected ? 14 : 9}
             pathOptions={{
               color: selected ? '#0B3D4A' : color,
               weight: selected ? 3 : 2,
               fillColor: color,
-              fillOpacity: node.status === 'offline' ? 0.35 : 0.85,
+              fillOpacity: bridge.status === 'closed' ? 0.35 : 0.85,
             }}
             eventHandlers={{
-              click: () => onSelect(node.id),
+              click: () => onSelect(bridge.id),
             }}
           >
             <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-              <strong>{node.name}</strong>
+              <strong>{bridge.name}</strong>
               <br />
-              {node.city} · {statusLabel(node.status)}
+              {bridge.city} · CI {bridge.conditionIndex} · {bridge.riskLevel}
             </Tooltip>
             <Popup>
               <div className="map-popup">
-                <strong>{node.name}</strong>
+                <strong>{bridge.name}</strong>
                 <span>
-                  {node.city}, {node.region}
+                  {bridge.road} · {bridge.region}
                 </span>
                 <span>
-                  {node.throughputMbps} Mbps · {node.latencyMs} ms
+                  Condition {bridge.conditionIndex} · Risk {bridge.riskScore}
                 </span>
               </div>
             </Popup>

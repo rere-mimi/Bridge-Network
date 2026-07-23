@@ -1,58 +1,85 @@
-import { useState } from 'react'
-import { ActivityFeed } from './components/ActivityFeed'
-import { Header } from './components/Header'
-import { MapView } from './components/MapView'
-import { MetricsBar } from './components/MetricsBar'
-import { NodePanel } from './components/NodePanel'
-import { useLiveData } from './hooks/useLiveData'
-import type { NodeStatus } from './types'
+import { AppShell } from './components/AppShell'
+import { ConditionView } from './components/ConditionView'
+import { DigitalTwinView } from './components/DigitalTwinView'
+import { InspectionView } from './components/InspectionView'
+import { InventoryView } from './components/InventoryView'
+import { OverviewView } from './components/OverviewView'
+import { PlanningView } from './components/PlanningView'
+import { RiskView } from './components/RiskView'
+import { useBridgePlatform } from './hooks/useBridgePlatform'
 import './App.css'
 
 export default function App() {
-  const { nodes, events, metrics, clock } = useLiveData()
-  const [selectedId, setSelectedId] = useState<string | null>('bn-nyc')
-  const [statusFilter, setStatusFilter] = useState<NodeStatus | 'all'>('all')
+  const platform = useBridgePlatform()
 
   return (
-    <div className="dashboard">
-      <div className="atmosphere" aria-hidden="true" />
-      <Header clock={clock} />
-      <MetricsBar metrics={metrics} totalNodes={nodes.length} />
+    <AppShell
+      view={platform.view}
+      onViewChange={platform.setView}
+      clock={platform.clock}
+      metrics={platform.metrics}
+    >
+      {platform.view === 'overview' && (
+        <OverviewView
+          bridges={platform.bridges}
+          selectedId={platform.selectedId}
+          selectedBridge={platform.selectedBridge}
+          events={platform.events}
+          onSelect={platform.selectBridge}
+          onInspect={platform.startInspection}
+          onOpenInventory={() => platform.setView('inventory')}
+        />
+      )}
 
-      <main className="dashboard-main">
-        <div className="map-stage">
-          <div className="map-frame">
-            <MapView
-              nodes={nodes}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              statusFilter={statusFilter}
-            />
-            <div className="map-legend" aria-hidden="true">
-              <span>
-                <i className="legend-dot online" /> Online
-              </span>
-              <span>
-                <i className="legend-dot degraded" /> Degraded
-              </span>
-              <span>
-                <i className="legend-dot offline" /> Offline
-              </span>
-            </div>
-          </div>
-        </div>
+      {platform.view === 'inventory' && (
+        <InventoryView
+          bridges={platform.bridges}
+          selectedId={platform.selectedId}
+          onSelect={platform.selectBridge}
+          onInspect={platform.startInspection}
+        />
+      )}
 
-        <aside className="side-rail">
-          <NodePanel
-            nodes={nodes}
-            selectedId={selectedId}
-            statusFilter={statusFilter}
-            onFilter={setStatusFilter}
-            onSelect={setSelectedId}
-          />
-          <ActivityFeed events={events} onSelect={setSelectedId} />
-        </aside>
-      </main>
-    </div>
+      {platform.view === 'inspection' && (
+        <InspectionView
+          bridges={platform.bridges}
+          inspections={platform.inspections}
+          activeInspection={platform.activeInspection}
+          onSelectInspection={platform.setActiveInspectionId}
+          onPhaseChange={platform.setInspectionPhase}
+          onUpdateElement={platform.updateElementInspection}
+          onBmpComments={platform.updateBmpComments}
+          onComplete={platform.completeInspection}
+          onStart={platform.startInspection}
+        />
+      )}
+
+      {platform.view === 'condition' && (
+        <ConditionView
+          bridges={platform.bridges}
+          inspections={platform.inspections}
+          selectedId={platform.selectedId}
+          onSelect={platform.selectBridge}
+        />
+      )}
+
+      {platform.view === 'risk' && (
+        <RiskView
+          bridges={platform.bridges}
+          selectedId={platform.selectedId}
+          onSelect={platform.selectBridge}
+        />
+      )}
+
+      {platform.view === 'twin' && (
+        <DigitalTwinView
+          bridge={platform.selectedBridge}
+          bridges={platform.bridges}
+          onSelect={platform.selectBridge}
+        />
+      )}
+
+      {platform.view === 'planning' && <PlanningView bridges={platform.bridges} />}
+    </AppShell>
   )
 }
