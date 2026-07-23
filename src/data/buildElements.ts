@@ -1,8 +1,12 @@
 import {
   descriptionForElement,
   elementsForFamily,
+  formatElementCode,
+  formatElementId,
   groupLabel,
+  majorGroupFor,
   materialFromBridge,
+  subgroupFor,
   type ElementGroup,
   type StructureFamily,
 } from './elementSchedule'
@@ -43,6 +47,8 @@ function defaultQuantity(
 }
 
 export type BuildElementsOptions = {
+  /** 5-digit numeric bridge ID */
+  bridgeId: string
   spans: number
   lengthM: number
   family: StructureFamily
@@ -56,16 +62,19 @@ export type BuildElementsOptions = {
 
 /**
  * Build Appendix C inventory instances for a bridge.
- * Groups follow Table C2 designations:
+ * Location groups follow Table C2:
  * - Approaches AP1, AP2
  * - Abutments A1, A2
  * - Piers P1..P(spans-1)
  * - Spans S1..Sn
  *
- * Element IDs use schedule numbers, e.g. S1-200, S2-201-4, P1-404.
+ * Element IDs: `{bridgeId}-{location}-{code}[-seq]` e.g. 10001-S2-201-4
+ * Major groups: Superstructure (roadway, joints, deck/beams, bearings)
+ *               Substructure (abutment, pier, columns, piles)
  */
 export function buildAppendixCElements(options: BuildElementsOptions): BridgeElement[] {
   const {
+    bridgeId,
     spans,
     lengthM,
     family,
@@ -101,19 +110,25 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
       if (el.no === 404 || el.no === 407) quantity = group === 'pier' ? 2 : 4
 
       const desc = descriptionForElement(el.no, preferredMaterial)
+      const majorGroup = majorGroupFor(el.no)
+      const subgroup = subgroupFor(el.no)
+      const code = formatElementCode(el.no)
 
       // Open beams: one inventory row per beam line on the span
       if (el.no === 201 && group === 'span') {
         for (let g = 1; g <= girderCountPerSpan; g++) {
-          const id = `${groupId}-${el.no}-${g}`
+          const id = formatElementId(bridgeId, groupId, el.no, g)
           const conditionScore = hashScore(id, conditionBase - 4)
           const riskScore = hashScore(`${id}-r`, riskBase + 8)
           elements.push({
             id,
-            code: String(el.no),
+            bridgeId,
+            code,
             scheduleNo: el.no,
             name: `${el.name} ${g}`,
             category: el.category,
+            majorGroup,
+            subgroup,
             group,
             groupId,
             significance: el.significance as 1 | 2 | 3 | 4,
@@ -130,15 +145,18 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
         continue
       }
 
-      const id = `${groupId}-${el.no}`
+      const id = formatElementId(bridgeId, groupId, el.no)
       const conditionScore = hashScore(id, conditionBase)
       const riskScore = hashScore(`${id}-r`, riskBase)
       elements.push({
         id,
-        code: String(el.no),
+        bridgeId,
+        code,
         scheduleNo: el.no,
         name: el.name,
         category: el.category,
+        majorGroup,
+        subgroup,
         group,
         groupId,
         significance: el.significance as 1 | 2 | 3 | 4,
@@ -176,6 +194,16 @@ export function elementsByGroup(elements: BridgeElement[]) {
     const list = map.get(el.groupId) ?? []
     list.push(el)
     map.set(el.groupId, list)
+  }
+  return map
+}
+
+export function elementsByMajorGroup(elements: BridgeElement[]) {
+  const map = new Map<string, BridgeElement[]>()
+  for (const el of elements) {
+    const list = map.get(el.majorGroup) ?? []
+    list.push(el)
+    map.set(el.majorGroup, list)
   }
   return map
 }

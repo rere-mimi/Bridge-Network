@@ -23,18 +23,35 @@ export type RiskLevel = 'low' | 'moderate' | 'high' | 'critical'
 export type ElementUnit = 'm²' | 'm' | 'each' | 'm³'
 export type ConditionBand = 'excellent' | 'good' | 'fair' | 'poor' | 'critical'
 export type ComponentGroupKind = 'abutment' | 'pier' | 'span' | 'approach'
+export type ElementMajorGroup =
+  | 'Superstructure'
+  | 'Substructure'
+  | 'Ancillary'
+  | 'Culvert'
+  | 'Tunnel'
+  | 'Retaining wall'
+  | 'Sign / gantry'
+  | 'Geotech'
 
 export type BridgeElement = {
-  /** Unique instance id, e.g. S1-200 or P2-404-1 */
+  /** Unique instance id, e.g. 10001-S1-200 or 10001-S2-201-4 */
   id: string
-  /** Appendix C element code (schedule number as string), e.g. "200", "404" */
+  /** Owning bridge 5-digit id */
+  bridgeId: string
+  /** Appendix C element code (3-digit padded), e.g. "200", "404" */
   code: string
   /** Appendix C schedule number */
   scheduleNo: number
   name: string
+  /** Appendix C schedule category (Carriageway level, Superstructure, Bearings, …) */
   category: string
+  /** Major group: Superstructure / Substructure / Ancillary / … */
+  majorGroup: ElementMajorGroup
+  /** Friendly subgroup: Deck, Beams, Bearings, Roadway, Pier, Abutment, … */
+  subgroup: string
+  /** Location kind on the structure */
   group: ComponentGroupKind
-  /** Group designation: A1, P1, S1, AP1 */
+  /** Location designation: A1, P1, S1, AP1 */
   groupId: string
   significance: 1 | 2 | 3 | 4
   unit: ElementUnit
@@ -87,6 +104,7 @@ export type InspectionHistoryItem = {
 }
 
 export type BridgeAsset = {
+  /** Unique 5-digit numeric bridge ID */
   id: string
   name: string
   road: string

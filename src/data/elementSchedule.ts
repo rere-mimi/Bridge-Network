@@ -9,6 +9,17 @@ export type QuantityUnit = 'm²' | 'm' | 'each' | 'm³'
 export type MaterialCode = 'S' | 'P' | 'C' | 'T' | 'M' | 'O'
 export type StructureFamily = 'girder' | 'box' | 'arch' | 'slab'
 
+/** High-level asset family used for inventory grouping. */
+export type ElementMajorGroup =
+  | 'Superstructure'
+  | 'Substructure'
+  | 'Ancillary'
+  | 'Culvert'
+  | 'Tunnel'
+  | 'Retaining wall'
+  | 'Sign / gantry'
+  | 'Geotech'
+
 export type StandardElement = {
   no: number
   name: string
@@ -468,6 +479,62 @@ export const ELEMENT_DESCRIPTIONS_BY_MATERIAL: Record<number, Partial<Record<Mat
 export function categoryForElement(no: number): string {
   const hit = STANDARD_ELEMENTS.find((e) => e.no === no)
   return hit?.category ?? 'Miscellaneous'
+}
+
+/**
+ * Major inventory group.
+ * Superstructure covers roadway, joints, deck/beams, and bearings;
+ * Substructure covers abutments, piers, columns, piles and footings.
+ */
+export function majorGroupFor(no: number): ElementMajorGroup {
+  if (no < 400) return 'Superstructure'
+  if (no < 500) return 'Substructure'
+  if (no < 600) return 'Ancillary'
+  if (no < 650) return 'Culvert'
+  if (no < 700) return 'Tunnel'
+  if (no < 800) return 'Retaining wall'
+  if (no < 900) return 'Sign / gantry'
+  return 'Geotech'
+}
+
+/** Friendly subgroup within Superstructure / Substructure / Ancillary. */
+export function subgroupFor(no: number): string {
+  if (no <= 99) return 'Roadway'
+  if (no < 200) return 'Deck joints'
+  if (no === 200) return 'Deck'
+  if (no < 300) return 'Beams / members'
+  if (no < 400) return 'Bearings'
+  if (no === 400 || no === 401) return 'Abutment'
+  if (no === 402 || no === 403) return 'Pier'
+  if (no === 404 || no === 405) return 'Columns'
+  if (no === 406) return 'Footings'
+  if (no === 407 || no === 408) return 'Piles'
+  if (no < 600) return 'Site / waterway'
+  if (no < 650) return 'Culvert'
+  if (no < 700) return 'Tunnel'
+  if (no < 800) return 'Retaining wall'
+  if (no < 900) return 'Sign / gantry'
+  return 'Geotech'
+}
+
+/** Zero-pad Appendix C element code to 3 digits (001, 200, 404). */
+export function formatElementCode(no: number): string {
+  return String(no).padStart(3, '0')
+}
+
+/**
+ * Database-style element instance id:
+ * `{bridgeId}-{location}-{elementCode}[-seq]`
+ * e.g. 10001-S2-201-4
+ */
+export function formatElementId(
+  bridgeId: string,
+  groupId: string,
+  scheduleNo: number,
+  sequence?: number,
+): string {
+  const code = formatElementCode(scheduleNo)
+  return sequence != null ? `${bridgeId}-${groupId}-${code}-${sequence}` : `${bridgeId}-${groupId}-${code}`
 }
 
 export function groupLabel(group: ElementGroup, index: number): string {

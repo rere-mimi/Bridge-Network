@@ -63,6 +63,7 @@ export function ModulePages({
             <table className="page-table">
               <thead>
                 <tr>
+                  <th>ID</th>
                   <th>Name</th>
                   <th>Road</th>
                   <th>Region</th>
@@ -75,6 +76,9 @@ export function ModulePages({
               <tbody>
                 {bridges.map((item) => (
                   <tr key={item.id} className={item.id === selectedId ? 'selected' : ''}>
+                    <td>
+                      <code>{item.id}</code>
+                    </td>
                     <td>{item.name}</td>
                     <td>{item.road}</td>
                     <td>{item.region}</td>
@@ -147,7 +151,7 @@ export function ModulePages({
       {page === 'condition' && (
         <PageShell
           title="Condition"
-          subtitle="Appendix C element schedule with condition scores by group (AP/A/P/S)."
+          subtitle="Appendix C coded elements by Superstructure / Substructure group."
         >
           <div className="page-kpi-row">
             {bridges.map((item) => (
@@ -157,7 +161,9 @@ export function ModulePages({
                 className={`page-kpi ${item.id === selectedId ? 'active' : ''}`}
                 onClick={() => onSelectBridge(item.id)}
               >
-                <span>{item.name}</span>
+                <span>
+                  <code>{item.id}</code> {item.name}
+                </span>
                 <strong>{item.conditionIndex}</strong>
                 <em className={`pill band-${item.conditionBand}`}>
                   {conditionLabel(item.conditionBand)}
@@ -165,38 +171,46 @@ export function ModulePages({
               </button>
             ))}
           </div>
-          <ResizablePanel title={`${bridge.name} elements`} storageKey="cond-el" defaultHeight={420}>
+          <ResizablePanel title={`${bridge.id} · ${bridge.name} elements`} storageKey="cond-el" defaultHeight={420}>
             <div className="page-table-wrap">
               <table className="page-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>No.</th>
-                    <th>Element</th>
-                    <th>Category</th>
+                    <th>Element ID</th>
                     <th>Group</th>
+                    <th>Subgroup</th>
+                    <th>Code</th>
+                    <th>Element</th>
+                    <th>Location</th>
                     <th>Qty</th>
                     <th>Condition</th>
                     <th>Sig</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bridge.elements.map((el) => (
-                    <tr key={el.id}>
-                      <td>
-                        <code>{el.id}</code>
-                      </td>
-                      <td>{el.scheduleNo}</td>
-                      <td>{el.name}</td>
-                      <td>{el.category}</td>
-                      <td>{el.groupId}</td>
-                      <td>
-                        {el.totalQuantity} {el.unit}
-                      </td>
-                      <td>{el.conditionScore}</td>
-                      <td>{el.significance}</td>
-                    </tr>
-                  ))}
+                  {[...bridge.elements]
+                    .sort((a, b) =>
+                      a.majorGroup === b.majorGroup
+                        ? a.scheduleNo - b.scheduleNo || a.groupId.localeCompare(b.groupId)
+                        : a.majorGroup.localeCompare(b.majorGroup),
+                    )
+                    .map((el) => (
+                      <tr key={el.id}>
+                        <td>
+                          <code>{el.id}</code>
+                        </td>
+                        <td>{el.majorGroup}</td>
+                        <td>{el.subgroup}</td>
+                        <td>{el.code}</td>
+                        <td>{el.name}</td>
+                        <td>{el.groupId}</td>
+                        <td>
+                          {el.totalQuantity} {el.unit}
+                        </td>
+                        <td>{el.conditionScore}</td>
+                        <td>{el.significance}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

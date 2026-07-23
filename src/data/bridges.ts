@@ -25,11 +25,11 @@ function forecast(base = 0.4) {
 
 function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
   const rows = [
-    { keys: ['200'], label: 'Deck' },
-    { keys: ['201', '202', '205'], label: 'Beams / arch' },
-    { keys: ['404', '407'], label: 'Columns / piles' },
-    { keys: ['302', '300', '301'], label: 'Bearings' },
-    { keys: ['402', '400'], label: 'Pier cap / abutment' },
+    { keys: [200], label: 'Deck' },
+    { keys: [201, 202, 205], label: 'Beams / arch' },
+    { keys: [404, 407], label: 'Columns / piles' },
+    { keys: [302, 300, 301], label: 'Bearings' },
+    { keys: [402, 400], label: 'Pier cap / abutment' },
   ]
   return rows.map((row) => ({
     element: row.label,
@@ -37,9 +37,9 @@ function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
       const groupId = `S${i + 1}`
       const pierId = `P${i + 1}`
       const match =
-        elements.find((e) => e.groupId === groupId && row.keys.includes(e.code)) ??
-        elements.find((e) => e.groupId === pierId && row.keys.includes(e.code)) ??
-        elements.find((e) => row.keys.includes(e.code))
+        elements.find((e) => e.groupId === groupId && row.keys.includes(e.scheduleNo)) ??
+        elements.find((e) => e.groupId === pierId && row.keys.includes(e.scheduleNo)) ??
+        elements.find((e) => row.keys.includes(e.scheduleNo))
       return match?.band ?? ('fair' as ConditionBand)
     }),
   }))
@@ -53,6 +53,7 @@ function makeBridge(
   },
 ): BridgeAsset {
   const elements = buildAppendixCElements({
+    bridgeId: partial.id,
     spans: partial.spans,
     lengthM: partial.lengthM,
     family: partial.family,
@@ -73,7 +74,7 @@ function makeBridge(
 
 export const BRIDGES: BridgeAsset[] = [
   makeBridge({
-    id: 'br-ash',
+    id: '10001',
     name: 'Ashburton River Bridge',
     road: 'SH1',
     region: 'Canterbury',
@@ -100,7 +101,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd1',
         elementCode: '201',
-        elementName: 'S2-201-4',
+        elementName: '10001-S2-201-4',
         title: 'Delamination/spall (Concrete/Masonry)',
         defectCode: '1100',
         severity: 'high',
@@ -110,7 +111,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd2',
         elementCode: '201',
-        elementName: 'S2-201-4',
+        elementName: '10001-S2-201-4',
         title: 'Efflorescence/rust staining',
         defectCode: '1160',
         severity: 'medium',
@@ -120,7 +121,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd3',
         elementCode: '201',
-        elementName: 'S2-201-4',
+        elementName: '10001-S2-201-4',
         title: 'Cracking (Reinforced concrete)',
         defectCode: '1150',
         severity: 'medium',
@@ -130,7 +131,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd4',
         elementCode: '404',
-        elementName: 'P2-404',
+        elementName: '10001-P2-404',
         title: 'Abrasion/wear (Concrete)',
         defectCode: '1170',
         severity: 'high',
@@ -143,7 +144,7 @@ export const BRIDGES: BridgeAsset[] = [
         id: 'i1',
         date: '2026-02-12',
         inspector: 'A. Ngata',
-        summary: 'P2-404 and S2-201-4 flagged for works',
+        summary: '10001-P2-404 and 10001-S2-201-4 flagged for works',
         score: 72,
       },
       {
@@ -172,7 +173,7 @@ export const BRIDGES: BridgeAsset[] = [
     maintenanceForecast: forecast(0.55),
   }),
   makeBridge({
-    id: 'br-ahb',
+    id: '10002',
     name: 'Auckland Harbour Bridge',
     road: 'SH1',
     region: 'Auckland',
@@ -199,7 +200,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd5',
         elementCode: '302',
-        elementName: 'P3-302',
+        elementName: '10002-P3-302',
         title: 'Movement (Bearing)',
         defectCode: '2000',
         severity: 'medium',
@@ -227,7 +228,7 @@ export const BRIDGES: BridgeAsset[] = [
     maintenanceForecast: forecast(1.2),
   }),
   makeBridge({
-    id: 'br-gra',
+    id: '10003',
     name: 'Grafton Bridge',
     road: 'Grafton Rd',
     region: 'Auckland',
@@ -254,7 +255,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd6',
         elementCode: '205',
-        elementName: 'S1-205',
+        elementName: '10003-S1-205',
         title: 'Efflorescence/rust staining',
         defectCode: '1160',
         severity: 'high',
@@ -282,7 +283,7 @@ export const BRIDGES: BridgeAsset[] = [
     maintenanceForecast: forecast(0.35),
   }),
   makeBridge({
-    id: 'br-tau',
+    id: '10004',
     name: 'Tauranga Harbour Bridge',
     road: 'SH2',
     region: 'Bay of Plenty',
@@ -326,7 +327,7 @@ export const BRIDGES: BridgeAsset[] = [
     maintenanceForecast: forecast(0.7),
   }),
   makeBridge({
-    id: 'br-nga',
+    id: '10005',
     name: 'Ngauranga Gorge Bridge',
     road: 'SH1',
     region: 'Wellington',
@@ -353,7 +354,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd7',
         elementCode: '302',
-        elementName: 'A1-302',
+        elementName: '10005-A1-302',
         title: 'Corrosion (General)',
         defectCode: '1000',
         severity: 'high',
@@ -381,7 +382,7 @@ export const BRIDGES: BridgeAsset[] = [
     maintenanceForecast: forecast(0.6),
   }),
   makeBridge({
-    id: 'br-bal',
+    id: '10006',
     name: 'Balclutha Bridge',
     road: 'SH1',
     region: 'Otago',
@@ -408,7 +409,7 @@ export const BRIDGES: BridgeAsset[] = [
       {
         id: 'd8',
         elementCode: '205',
-        elementName: 'S3-205',
+        elementName: '10006-S3-205',
         title: 'Delamination/spall (Concrete/Masonry)',
         defectCode: '1100',
         severity: 'critical',

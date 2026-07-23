@@ -41,25 +41,27 @@ type Hotspot = {
 function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   const midSpan = Math.max(1, Math.ceil(bridge.spans / 2))
   const pierIdx = Math.min(midSpan, Math.max(1, bridge.spans - 1))
+  const pierGroup = `P${pierIdx}`
+  const spanGroup = `S${midSpan}`
 
   const pier =
-    bridge.elements.find((e) => e.id === `P${pierIdx}-404`) ??
-    bridge.elements.find((e) => e.group === 'pier' && e.code === '404') ??
-    bridge.elements.find((e) => e.group === 'pier' && e.code === '402')
+    bridge.elements.find((e) => e.groupId === pierGroup && e.scheduleNo === 404) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.scheduleNo === 404) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.scheduleNo === 402)
 
   const girder =
-    bridge.elements.find((e) => e.id === `S${midSpan}-201-4`) ??
-    bridge.elements.find((e) => e.groupId === `S${midSpan}` && e.code === '201') ??
-    bridge.elements.find((e) => e.code === '202' || e.code === '205')
+    bridge.elements.find((e) => e.groupId === spanGroup && e.scheduleNo === 201 && e.id.endsWith('-4')) ??
+    bridge.elements.find((e) => e.groupId === spanGroup && e.scheduleNo === 201) ??
+    bridge.elements.find((e) => e.scheduleNo === 202 || e.scheduleNo === 205)
 
   const bearing =
-    bridge.elements.find((e) => e.id === `P${pierIdx}-302`) ??
-    bridge.elements.find((e) => e.group === 'pier' && e.code === '302') ??
-    bridge.elements.find((e) => e.code === '302')
+    bridge.elements.find((e) => e.groupId === pierGroup && e.scheduleNo === 302) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.scheduleNo === 302) ??
+    bridge.elements.find((e) => e.scheduleNo === 302)
 
   const deck =
-    bridge.elements.find((e) => e.id === `S${midSpan}-200`) ??
-    bridge.elements.find((e) => e.group === 'span' && e.code === '200')
+    bridge.elements.find((e) => e.groupId === spanGroup && e.scheduleNo === 200) ??
+    bridge.elements.find((e) => e.group === 'span' && e.scheduleNo === 200)
 
   const spots: Hotspot[] = []
   if (pier) {
@@ -69,7 +71,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
       label: pier.id,
       position: [-1.2, 0.55, 0.15],
       element: pier,
-      detail: `${bridge.defects.filter((d) => d.elementName.startsWith(pier.groupId) || d.elementCode === pier.code).length || 0} defects · sig ${pier.significance}`,
+      detail: `${pier.majorGroup} · ${pier.subgroup} · sig ${pier.significance}`,
     })
   }
   if (girder) {
@@ -79,7 +81,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
       label: girder.id,
       position: [0.4, 1.35, 0.35],
       element: girder,
-      detail: `${girder.name} · ${girder.band}`,
+      detail: `${girder.majorGroup} · ${girder.name} · ${girder.band}`,
     })
   }
   if (deck) {
@@ -89,7 +91,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
       label: deck.id,
       position: [1.6, 1.55, 0],
       element: deck,
-      detail: `No.${deck.scheduleNo} · score ${deck.conditionScore}`,
+      detail: `${deck.majorGroup} · No.${deck.code} · score ${deck.conditionScore}`,
     })
   }
   if (bearing) {
@@ -99,7 +101,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
       label: bearing.id,
       position: [-2.4, 1.05, 0.2],
       element: bearing,
-      detail: `Risk ${bearing.riskScore}`,
+      detail: `${bearing.majorGroup} · Risk ${bearing.riskScore}`,
     })
   }
   return spots

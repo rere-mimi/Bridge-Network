@@ -96,8 +96,9 @@ export default function App() {
   const types = [...new Set(BRIDGES.map((b) => b.structureType))]
 
   const preferred =
-    bridge.elements.find((e) => e.id.includes('-G4')) ??
-    bridge.elements.find((e) => e.code === 'D') ??
+    bridge.elements.find((e) => e.scheduleNo === 201 && e.id.endsWith('-4')) ??
+    bridge.elements.find((e) => e.scheduleNo === 200) ??
+    bridge.elements.find((e) => e.majorGroup === 'Superstructure') ??
     bridge.elements[0]
 
   const activeElement =
@@ -312,7 +313,9 @@ export default function App() {
                       setSelectedElement(null)
                     }}
                   >
-                    <strong>{item.name}</strong>
+                    <strong>
+                      {item.id} · {item.name}
+                    </strong>
                     <span>
                       {item.region} · CI {item.conditionIndex}
                     </span>
@@ -385,7 +388,9 @@ export default function App() {
             <div className="center-primary">
               <div className="selected-heading">
                 <div>
-                  <p className="eyebrow">{bridge.road} · {bridge.region}</p>
+                  <p className="eyebrow">
+                    Bridge ID {bridge.id} · {bridge.road} · {bridge.region}
+                  </p>
                   <h1>{bridge.name}</h1>
                 </div>
                 <span className={`status status-${bridge.status}`}>{bridge.status}</span>
@@ -450,9 +455,13 @@ export default function App() {
                   <div className="element-detail">
                     <h3>{activeElement.element.id}</h3>
                     <p className="element-meta">
-                      Appendix C No.{activeElement.element.scheduleNo} · {activeElement.element.name} ·{' '}
-                      {activeElement.element.category} · {activeElement.element.groupId}
+                      Bridge {activeElement.element.bridgeId} · {activeElement.element.majorGroup} ·{' '}
+                      {activeElement.element.subgroup} · Code {activeElement.element.code} ·{' '}
+                      {activeElement.element.groupId}
                       {activeElement.element.material ? ` · (${activeElement.element.material})` : ''}
+                    </p>
+                    <p className="element-meta">
+                      Appendix C · {activeElement.element.category} · {activeElement.element.name}
                     </p>
                     {activeElement.element.description && (
                       <>
