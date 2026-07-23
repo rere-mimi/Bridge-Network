@@ -56,7 +56,13 @@ type ModelBuilderProps = {
   onCancel: () => void
 }
 
-type Step = 1 | 2 | 3 | 4 | 5
+const BUILDER_SECTIONS = [
+  { id: 'category', label: 'Category' },
+  { id: 'sketch', label: 'Sketch' },
+  { id: 'identity', label: 'Identity' },
+  { id: 'size', label: 'Size' },
+  { id: 'elements', label: 'Elements' },
+] as const
 
 function elementName(no: number): string {
   return STANDARD_ELEMENTS.find((e) => e.no === no)?.name ?? `Element ${no}`
@@ -87,7 +93,6 @@ export function ModelBuilder({
   const editing = !!initialStructure
   const seed = initialStructure ? draftFromStructure(initialStructure) : null
 
-  const [step, setStep] = useState<Step>(1)
   const [category, setCategory] = useState<ModelCategory>(
     seed ? categoryFromFamily(seed.family) : 'bridge',
   )
@@ -359,17 +364,19 @@ export function ModelBuilder({
     }
   }
 
-  function canContinue(): boolean {
-    if (step === 1) return true
-    if (step === 2) return !!family && !!material
-    if (step === 3) return name.trim().length > 1 && road.trim().length > 0 && region.trim().length > 0
-    if (step === 4) {
-      if (!(lengthM > 0 && spans >= 1 && deckWidthM > 0)) return false
-      if (kind === 'bridge' && pierType !== 'wall' && columnsPerPier < 1) return false
-      return true
+  function canSave(): boolean {
+    if (!family || !material) return false
+    if (name.trim().length <= 1 || road.trim().length === 0 || region.trim().length === 0) {
+      return false
     }
-    if (step === 5) return selectedNos.length > 0
-    return false
+    if (!(lengthM > 0 && spans >= 1 && deckWidthM > 0)) return false
+    if (kind === 'bridge' && pierType !== 'wall' && columnsPerPier < 1) return false
+    return selectedNos.length > 0
+  }
+
+  function scrollToSection(id: string) {
+    const el = document.getElementById(`builder-${id}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function create() {
@@ -410,8 +417,8 @@ export function ModelBuilder({
           <h1>{editing ? 'Edit structure model' : 'Create structure model'}</h1>
           <p>
             {editing
-              ? 'Update identity, location, type sketch, or element dimensions, then save back to your database.'
-              : 'Choose bridge, walls, culvert or tunnel, pick a type sketch, set high-level size, then create. Refine every element dimension after creation.'}
+              ? 'Scroll through every section below — identity, location, type sketch, size, and elements stay visible together.'
+              : 'Scroll through every option on one page: category, sketch, identity, size, and elements. Refine dimensions after create with Edit model.'}
           </p>
         </div>
         <div className="model-builder-id">
@@ -420,23 +427,25 @@ export function ModelBuilder({
         </div>
       </header>
 
-      <ol className="model-steps">
-        {(['Category', 'Sketch', 'Identity', 'Size', 'Elements'] as const).map((label, i) => {
-          const n = (i + 1) as Step
-          return (
-            <li key={label} className={step === n ? 'active' : step > n ? 'done' : ''}>
-              <em>{n}</em>
-              {label}
-            </li>
-          )
-        })}
-      </ol>
+      <nav className="model-section-nav" aria-label="Builder sections">
+        {BUILDER_SECTIONS.map((section, i) => (
+          <button
+            key={section.id}
+            type="button"
+            className="model-section-nav-btn"
+            onClick={() => scrollToSection(section.id)}
+          >
+            <em>{i + 1}</em>
+            {section.label}
+          </button>
+        ))}
+      </nav>
 
-      {step === 1 && (
-        <section className="model-card">
-          <h2>What are you modelling?</h2>
+      <div className="model-builder-scroll">
+        <section id="builder-category" className="model-card">
+          <h2>1. What are you modelling?</h2>
           <p className="model-help">
-            Choose the asset category first. Next you will pick a sketch type within that category.
+            Choose the asset category. Sketches for that category appear in the next section.
           </p>
           <div className="model-choice-grid">
             {MODEL_CATEGORIES.map((item) => (
@@ -452,11 +461,9 @@ export function ModelBuilder({
             ))}
           </div>
         </section>
-      )}
 
-      {step === 2 && (
-        <section className="model-card">
-          <h2>Pick a type sketch</h2>
+        <section id="builder-sketch" className="model-card">
+          <h2>2. Pick a type sketch</h2>
           <p className="model-help">
             Sketches show the structural form at a glance. Names are under each card — dimensions stay
             high-level until the model is created, then every element size can be edited.
@@ -491,11 +498,9 @@ export function ModelBuilder({
             </select>
           </label>
         </section>
-      )}
 
-      {step === 3 && (
-        <section className="model-card">
-          <h2>Structure identity & location</h2>
+        <section id="builder-identity" className="model-card">
+          <h2>3. Structure identity & location</h2>
           <div className="model-form-grid">
             <label className="model-field">
               Name
@@ -566,11 +571,9 @@ export function ModelBuilder({
             />
           </div>
         </section>
-      )}
 
-      {step === 4 && (
-        <section className="model-card">
-          <h2>{editing ? 'Geometry — overall & element sizes' : 'High-level size'}</h2>
+        <section id="builder-size" className="model-card">
+          <h2>{editing ? '4. Geometry — overall & element sizes' : '4. High-level size'}</h2>
           <p className="model-help">
             {editing
               ? 'Adjust overall size and every element dimension. These drive inventory quantities and the structural 3D twin.'
@@ -778,64 +781,63 @@ export function ModelBuilder({
 
           {editing ? (
             <>
-          <h3 className="model-subhead">Element dimensions (m)</h3>
-          <p className="model-help">
-            Edit sizes for each selected structural element type. Values apply to all instances of
-            that schedule number.
-          </p>
-          <div className="model-dim-table-wrap">
-            <table className="model-dim-table">
-              <thead>
-                <tr>
-                  <th>Element</th>
-                  <th>L</th>
-                  <th>W</th>
-                  <th>H</th>
-                  <th>Ø</th>
-                  <th>Opening H</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dimensionNos.map((no) => {
-                  const size = elementSizes[no] ?? {}
-                  const fields = sizeFieldsFor(no)
-                  return (
-                    <tr key={no}>
-                      <td>
-                        <strong>{String(no).padStart(3, '0')}</strong> {elementName(no)}
-                      </td>
-                      {(['length', 'width', 'height', 'diameter', 'openingHeight'] as const).map(
-                        (key) => (
-                          <td key={key}>
-                            {fields.includes(key) ? (
-                              <input
-                                type="number"
-                                min={0.05}
-                                step="0.05"
-                                value={size[key] ?? ''}
-                                placeholder="—"
-                                onChange={(e) =>
-                                  patchSize(no, key, Math.max(0.05, Number(e.target.value) || 0.05))
-                                }
-                              />
-                            ) : (
-                              <span className="dim-na">—</span>
-                            )}
-                          </td>
-                        ),
-                      )}
+              <h3 className="model-subhead">Element dimensions (m)</h3>
+              <p className="model-help">
+                Edit sizes for each selected structural element type. Values apply to all instances of
+                that schedule number.
+              </p>
+              <div className="model-dim-table-wrap">
+                <table className="model-dim-table">
+                  <thead>
+                    <tr>
+                      <th>Element</th>
+                      <th>L</th>
+                      <th>W</th>
+                      <th>H</th>
+                      <th>Ø</th>
+                      <th>Opening H</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          {dimensionNos.length === 0 && (
-            <p className="model-help">
-              Select structural elements in the next step to edit their dimensions, or keep the
-              defaults above after continuing once.
-            </p>
-          )}
+                  </thead>
+                  <tbody>
+                    {dimensionNos.map((no) => {
+                      const size = elementSizes[no] ?? {}
+                      const fields = sizeFieldsFor(no)
+                      return (
+                        <tr key={no}>
+                          <td>
+                            <strong>{String(no).padStart(3, '0')}</strong> {elementName(no)}
+                          </td>
+                          {(['length', 'width', 'height', 'diameter', 'openingHeight'] as const).map(
+                            (key) => (
+                              <td key={key}>
+                                {fields.includes(key) ? (
+                                  <input
+                                    type="number"
+                                    min={0.05}
+                                    step="0.05"
+                                    value={size[key] ?? ''}
+                                    placeholder="—"
+                                    onChange={(e) =>
+                                      patchSize(no, key, Math.max(0.05, Number(e.target.value) || 0.05))
+                                    }
+                                  />
+                                ) : (
+                                  <span className="dim-na">—</span>
+                                )}
+                              </td>
+                            ),
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {dimensionNos.length === 0 && (
+                <p className="model-help">
+                  Select structural elements below to edit their dimensions, or keep the defaults.
+                </p>
+              )}
             </>
           ) : (
             <p className="model-help">
@@ -854,11 +856,9 @@ export function ModelBuilder({
             />
           </label>
         </section>
-      )}
 
-      {step === 5 && (
-        <section className="model-card">
-          <h2>Appendix C element set</h2>
+        <section id="builder-elements" className="model-card">
+          <h2>5. Appendix C element set</h2>
           <p className="model-help">
             Toggle which standard elements to include. Descriptions come from Appendix F for material
             code <code>{preferredMaterial}</code>.{' '}
@@ -919,37 +919,21 @@ export function ModelBuilder({
             {editing ? ' Existing defects and inspection history are kept.' : ''}
           </p>
         </section>
-      )}
+      </div>
 
-      <footer className="model-builder-actions">
+      <footer className="model-builder-actions sticky">
         <button type="button" className="page-btn ghost" onClick={onCancel}>
           Cancel
         </button>
         <div className="model-builder-nav">
-          {step > 1 && (
-            <button type="button" className="page-btn" onClick={() => setStep((s) => (s - 1) as Step)}>
-              Back
-            </button>
-          )}
-          {step < 5 ? (
-            <button
-              type="button"
-              className="page-btn primary"
-              disabled={!canContinue()}
-              onClick={() => setStep((s) => (s + 1) as Step)}
-            >
-              Continue
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="page-btn primary"
-              disabled={!canContinue()}
-              onClick={create}
-            >
-              {editing ? 'Save changes' : 'Save to database'}
-            </button>
-          )}
+          <button
+            type="button"
+            className="page-btn primary"
+            disabled={!canSave()}
+            onClick={create}
+          >
+            {editing ? 'Save changes' : 'Save to database'}
+          </button>
         </div>
       </footer>
     </div>
