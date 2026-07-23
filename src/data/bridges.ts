@@ -1,4 +1,5 @@
-import type { BridgeAsset, BridgeElement, ConditionBand } from '../types'
+import type { BridgeAsset, ConditionBand } from '../types'
+import { buildAppendixBElements } from './buildElements'
 
 function bandFromScore(score: number): ConditionBand {
   if (score >= 90) return 'excellent'
@@ -8,23 +9,9 @@ function bandFromScore(score: number): ConditionBand {
   return 'critical'
 }
 
-function el(
-  code: string,
-  name: string,
-  unit: BridgeElement['unit'],
-  totalQuantity: number,
-  conditionScore: number,
-  riskScore: number,
-): BridgeElement {
-  return {
-    code,
-    name,
-    unit,
-    totalQuantity,
-    conditionScore,
-    riskScore,
-    band: bandFromScore(conditionScore),
-  }
+function avgCondition(elements: BridgeAsset['elements']): number {
+  if (!elements.length) return 70
+  return Math.round(elements.reduce((s, e) => s + e.conditionScore, 0) / elements.length)
 }
 
 function forecast(base = 0.4) {
@@ -36,8 +23,54 @@ function forecast(base = 0.4) {
   }))
 }
 
+function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
+  const rows = [
+    { key: 'D', label: 'Deck' },
+    { key: 'G', label: 'Girders' },
+    { key: 'C', label: 'Columns/Piles' },
+    { key: 'B', label: 'Bearings' },
+    { key: 'H', label: 'Headstocks' },
+  ]
+  return rows.map((row) => ({
+    element: row.label,
+    spans: Array.from({ length: spans }, (_, i) => {
+      const groupId = `S${i + 1}`
+      const match =
+        elements.find((e) => e.groupId === groupId && e.code === row.key) ??
+        elements.find((e) => e.groupId === `P${i + 1}` && e.code === row.key) ??
+        elements.find((e) => e.code === row.key)
+      return match?.band ?? ('fair' as ConditionBand)
+    }),
+  }))
+}
+
+function makeBridge(
+  partial: Omit<BridgeAsset, 'elements' | 'conditionIndex' | 'conditionBand' | 'heatmap'> & {
+    family: 'girder' | 'box' | 'arch' | 'slab'
+    conditionBase?: number
+    riskBase?: number
+  },
+): BridgeAsset {
+  const elements = buildAppendixBElements({
+    spans: partial.spans,
+    lengthM: partial.lengthM,
+    family: partial.family,
+    conditionBase: partial.conditionBase ?? 75,
+    riskBase: partial.riskBase ?? 45,
+  })
+  const conditionIndex = avgCondition(elements)
+  const { family: _f, conditionBase: _c, riskBase: _r, ...rest } = partial
+  return {
+    ...rest,
+    elements,
+    conditionIndex,
+    conditionBand: bandFromScore(conditionIndex),
+    heatmap: heatFromElements(partial.spans, elements),
+  }
+}
+
 export const BRIDGES: BridgeAsset[] = [
-  {
+  makeBridge({
     id: 'br-ash',
     name: 'Ashburton River Bridge',
     road: 'SH1',
@@ -54,26 +87,18 @@ export const BRIDGES: BridgeAsset[] = [
     status: 'watch',
     lastInspection: '2026-02-12',
     nextInspectionDue: '2027-02-12',
-    conditionIndex: 72,
-    conditionBand: 'fair',
     riskLevel: 'moderate',
     riskScore: 68,
     remainingLifeYears: 38,
     photoLabel: 'Pier / soffit inspection',
-    elements: [
-      el('DEC', 'Deck', 'm²', 2400, 78, 42),
-      el('GIR', 'Girders', 'm', 930, 64, 71),
-      el('PIE', 'Piers', 'each', 4, 58, 76),
-      el('BEA', 'Bearings', 'each', 40, 70, 55),
-      el('ABT', 'Abutments', 'each', 2, 81, 38),
-      el('EXP', 'Expansion joints', 'm', 36, 66, 60),
-      el('RAI', 'Barriers', 'm', 372, 84, 28),
-    ],
+    family: 'girder',
+    conditionBase: 72,
+    riskBase: 55,
     defects: [
       {
         id: 'd1',
-        elementCode: 'GIR',
-        elementName: 'Girder G4',
+        elementCode: 'G',
+        elementName: 'S2-G4',
         title: 'Spalling',
         severity: 'high',
         status: 'open',
@@ -81,8 +106,8 @@ export const BRIDGES: BridgeAsset[] = [
       },
       {
         id: 'd2',
-        elementCode: 'GIR',
-        elementName: 'Girder G4',
+        elementCode: 'G',
+        elementName: 'S2-G4',
         title: 'Rust staining',
         severity: 'medium',
         status: 'monitoring',
@@ -90,8 +115,8 @@ export const BRIDGES: BridgeAsset[] = [
       },
       {
         id: 'd3',
-        elementCode: 'GIR',
-        elementName: 'Girder G4',
+        elementCode: 'G',
+        elementName: 'S2-G4',
         title: 'Longitudinal crack',
         severity: 'medium',
         status: 'open',
@@ -99,8 +124,8 @@ export const BRIDGES: BridgeAsset[] = [
       },
       {
         id: 'd4',
-        elementCode: 'PIE',
-        elementName: 'Pier 2',
+        elementCode: 'C',
+        elementName: 'P2-C',
         title: 'Surface deterioration',
         severity: 'high',
         status: 'planned',
@@ -112,7 +137,7 @@ export const BRIDGES: BridgeAsset[] = [
         id: 'i1',
         date: '2026-02-12',
         inspector: 'A. Ngata',
-        summary: 'Pier 2 and Girder G4 flagged for works',
+        summary: 'P2 columns and S2-G4 flagged for works',
         score: 72,
       },
       {
@@ -139,26 +164,8 @@ export const BRIDGES: BridgeAsset[] = [
       other: 10,
     },
     maintenanceForecast: forecast(0.55),
-    heatmap: [
-      {
-        element: 'Deck',
-        spans: ['good', 'good', 'fair', 'good', 'good'],
-      },
-      {
-        element: 'Girders',
-        spans: ['fair', 'poor', 'fair', 'good', 'fair'],
-      },
-      {
-        element: 'Piers',
-        spans: ['good', 'poor', 'fair', 'good', 'good'],
-      },
-      {
-        element: 'Bearings',
-        spans: ['fair', 'fair', 'good', 'fair', 'good'],
-      },
-    ],
-  },
-  {
+  }),
+  makeBridge({
     id: 'br-ahb',
     name: 'Auckland Harbour Bridge',
     road: 'SH1',
@@ -175,25 +182,18 @@ export const BRIDGES: BridgeAsset[] = [
     status: 'operational',
     lastInspection: '2026-03-12',
     nextInspectionDue: '2026-09-12',
-    conditionIndex: 82,
-    conditionBand: 'good',
     riskLevel: 'moderate',
     riskScore: 48,
     remainingLifeYears: 45,
     photoLabel: 'Clip-on span overview',
-    elements: [
-      el('DEC', 'Deck', 'm²', 18400, 84, 35),
-      el('SUP', 'Superstructure', 'm', 1020, 80, 44),
-      el('PIE', 'Piers', 'each', 7, 78, 50),
-      el('BEA', 'Bearings', 'each', 64, 74, 52),
-      el('ABT', 'Abutments', 'each', 2, 88, 30),
-      el('RAI', 'Barriers', 'm', 2040, 90, 22),
-    ],
+    family: 'box',
+    conditionBase: 82,
+    riskBase: 40,
     defects: [
       {
         id: 'd5',
-        elementCode: 'BEA',
-        elementName: 'Bearing B12',
+        elementCode: 'B',
+        elementName: 'P3-B',
         title: 'Movement restriction',
         severity: 'medium',
         status: 'monitoring',
@@ -218,18 +218,8 @@ export const BRIDGES: BridgeAsset[] = [
       other: 8,
     },
     maintenanceForecast: forecast(1.2),
-    heatmap: [
-      {
-        element: 'Deck',
-        spans: ['good', 'good', 'good', 'fair', 'good', 'good', 'good', 'good'],
-      },
-      {
-        element: 'Piers',
-        spans: ['good', 'fair', 'good', 'good', 'fair', 'good', 'good', 'good'],
-      },
-    ],
-  },
-  {
+  }),
+  makeBridge({
     id: 'br-gra',
     name: 'Grafton Bridge',
     road: 'Grafton Rd',
@@ -246,23 +236,18 @@ export const BRIDGES: BridgeAsset[] = [
     status: 'watch',
     lastInspection: '2026-01-20',
     nextInspectionDue: '2026-07-20',
-    conditionIndex: 71,
-    conditionBand: 'fair',
     riskLevel: 'high',
     riskScore: 67,
     remainingLifeYears: 28,
     photoLabel: 'Arch soffit close-up',
-    elements: [
-      el('DEC', 'Deck', 'm²', 980, 74, 48),
-      el('SUP', 'Arch', 'm', 98, 68, 70),
-      el('ABT', 'Abutments', 'each', 2, 72, 55),
-      el('RAI', 'Barriers', 'm', 210, 80, 32),
-    ],
+    family: 'arch',
+    conditionBase: 71,
+    riskBase: 60,
     defects: [
       {
         id: 'd6',
-        elementCode: 'SUP',
-        elementName: 'Arch ring',
+        elementCode: 'ARH',
+        elementName: 'S1-ARH',
         title: 'Moisture ingress',
         severity: 'high',
         status: 'open',
@@ -287,13 +272,8 @@ export const BRIDGES: BridgeAsset[] = [
       other: 8,
     },
     maintenanceForecast: forecast(0.35),
-    heatmap: [
-      { element: 'Deck', spans: ['fair'] },
-      { element: 'Arch', spans: ['poor'] },
-      { element: 'Abutments', spans: ['fair'] },
-    ],
-  },
-  {
+  }),
+  makeBridge({
     id: 'br-tau',
     name: 'Tauranga Harbour Bridge',
     road: 'SH2',
@@ -310,18 +290,13 @@ export const BRIDGES: BridgeAsset[] = [
     status: 'operational',
     lastInspection: '2026-02-04',
     nextInspectionDue: '2026-08-04',
-    conditionIndex: 88,
-    conditionBand: 'good',
     riskLevel: 'low',
     riskScore: 28,
     remainingLifeYears: 52,
     photoLabel: 'Marine span overview',
-    elements: [
-      el('DEC', 'Deck', 'm²', 6200, 90, 22),
-      el('SUP', 'Superstructure', 'm', 465, 86, 30),
-      el('PIE', 'Piers', 'each', 10, 84, 34),
-      el('BEA', 'Bearings', 'each', 44, 82, 36),
-    ],
+    family: 'girder',
+    conditionBase: 88,
+    riskBase: 28,
     defects: [],
     inspections: [
       {
@@ -341,18 +316,8 @@ export const BRIDGES: BridgeAsset[] = [
       other: 10,
     },
     maintenanceForecast: forecast(0.7),
-    heatmap: [
-      {
-        element: 'Deck',
-        spans: ['excellent', 'good', 'good', 'good', 'good'],
-      },
-      {
-        element: 'Piers',
-        spans: ['good', 'good', 'fair', 'good', 'good'],
-      },
-    ],
-  },
-  {
+  }),
+  makeBridge({
     id: 'br-nga',
     name: 'Ngauranga Gorge Bridge',
     road: 'SH1',
@@ -369,23 +334,18 @@ export const BRIDGES: BridgeAsset[] = [
     status: 'watch',
     lastInspection: '2026-04-02',
     nextInspectionDue: '2026-10-02',
-    conditionIndex: 69,
-    conditionBand: 'fair',
     riskLevel: 'high',
     riskScore: 71,
     remainingLifeYears: 31,
     photoLabel: 'Gorge approach view',
-    elements: [
-      el('DEC', 'Deck', 'm²', 3400, 70, 58),
-      el('GIR', 'Girders', 'm', 840, 62, 74),
-      el('PIE', 'Piers', 'each', 3, 66, 68),
-      el('BEA', 'Bearings', 'each', 24, 60, 72),
-    ],
+    family: 'girder',
+    conditionBase: 69,
+    riskBase: 62,
     defects: [
       {
         id: 'd7',
-        elementCode: 'BEA',
-        elementName: 'Bearing line A',
+        elementCode: 'B',
+        elementName: 'A1-B',
         title: 'Corrosion',
         severity: 'high',
         status: 'planned',
@@ -410,13 +370,8 @@ export const BRIDGES: BridgeAsset[] = [
       other: 8,
     },
     maintenanceForecast: forecast(0.6),
-    heatmap: [
-      { element: 'Deck', spans: ['fair', 'fair', 'good', 'fair'] },
-      { element: 'Girders', spans: ['poor', 'fair', 'fair', 'poor'] },
-      { element: 'Piers', spans: ['fair', 'fair', 'good', 'fair'] },
-    ],
-  },
-  {
+  }),
+  makeBridge({
     id: 'br-bal',
     name: 'Balclutha Bridge',
     road: 'SH1',
@@ -433,23 +388,18 @@ export const BRIDGES: BridgeAsset[] = [
     status: 'restricted',
     lastInspection: '2026-02-28',
     nextInspectionDue: '2026-05-28',
-    conditionIndex: 58,
-    conditionBand: 'poor',
     riskLevel: 'critical',
     riskScore: 86,
     remainingLifeYears: 16,
     photoLabel: 'Arch elevation',
-    elements: [
-      el('DEC', 'Deck', 'm²', 2200, 55, 80),
-      el('SUP', 'Arch', 'm', 244, 50, 88),
-      el('PIE', 'Piers', 'each', 5, 52, 84),
-      el('BEA', 'Bearings', 'each', 24, 48, 90),
-    ],
+    family: 'arch',
+    conditionBase: 58,
+    riskBase: 78,
     defects: [
       {
         id: 'd8',
-        elementCode: 'SUP',
-        elementName: 'Arch rib',
+        elementCode: 'ARH',
+        elementName: 'S3-ARH',
         title: 'Section loss',
         severity: 'critical',
         status: 'open',
@@ -474,11 +424,7 @@ export const BRIDGES: BridgeAsset[] = [
       other: 8,
     },
     maintenanceForecast: forecast(0.9),
-    heatmap: [
-      { element: 'Deck', spans: ['poor', 'poor', 'fair', 'poor', 'poor', 'fair'] },
-      { element: 'Arch', spans: ['critical', 'poor', 'poor', 'poor', 'critical', 'poor'] },
-    ],
-  },
+  }),
 ]
 
 export function conditionLabel(band: ConditionBand): string {

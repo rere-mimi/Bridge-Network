@@ -165,28 +165,36 @@ export function ModulePages({
               </button>
             ))}
           </div>
-          <ResizablePanel title={`${bridge.name} elements`} storageKey="cond-el" defaultHeight={320}>
+          <ResizablePanel title={`${bridge.name} elements`} storageKey="cond-el" defaultHeight={420}>
             <div className="page-table-wrap">
               <table className="page-table">
                 <thead>
                   <tr>
+                    <th>ID</th>
+                    <th>No.</th>
                     <th>Code</th>
-                    <th>Element</th>
+                    <th>Component</th>
+                    <th>Group</th>
+                    <th>Qty</th>
                     <th>Condition</th>
-                    <th>Band</th>
-                    <th>Risk</th>
+                    <th>Sig</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bridge.elements.map((el) => (
-                    <tr key={el.code}>
+                    <tr key={el.id}>
                       <td>
-                        <code>{el.code}</code>
+                        <code>{el.id}</code>
                       </td>
+                      <td>{el.scheduleNo}</td>
+                      <td>{el.code}</td>
                       <td>{el.name}</td>
+                      <td>{el.groupId}</td>
+                      <td>
+                        {el.totalQuantity} {el.unit}
+                      </td>
                       <td>{el.conditionScore}</td>
-                      <td>{conditionLabel(el.band)}</td>
-                      <td>{el.riskScore}</td>
+                      <td>{el.significance}</td>
                     </tr>
                   ))}
                 </tbody>

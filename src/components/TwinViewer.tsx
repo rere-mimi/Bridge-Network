@@ -39,49 +39,64 @@ type Hotspot = {
 }
 
 function buildHotspots(bridge: BridgeAsset): Hotspot[] {
-  const pier = bridge.elements.find((e) => e.code === 'PIE' || e.code === 'SUP')
-  const girder = bridge.elements.find(
-    (e) => e.code === 'GIR' || e.code === 'SUP' || e.code === 'DEC',
-  )
-  const bearing = bridge.elements.find((e) => e.code === 'BEA')
-  const deck = bridge.elements.find((e) => e.code === 'DEC')
+  const midSpan = Math.max(1, Math.ceil(bridge.spans / 2))
+  const pierIdx = Math.min(midSpan, Math.max(1, bridge.spans - 1))
+
+  const pier =
+    bridge.elements.find((e) => e.id === `P${pierIdx}-C`) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.code === 'C') ??
+    bridge.elements.find((e) => e.group === 'pier' && e.code === 'H')
+
+  const girder =
+    bridge.elements.find((e) => e.id === `S${midSpan}-G4`) ??
+    bridge.elements.find((e) => e.groupId === `S${midSpan}` && e.code === 'G') ??
+    bridge.elements.find((e) => e.code === 'G' || e.code === 'ARH')
+
+  const bearing =
+    bridge.elements.find((e) => e.id === `P${pierIdx}-B`) ??
+    bridge.elements.find((e) => e.group === 'pier' && e.code === 'B') ??
+    bridge.elements.find((e) => e.code === 'B')
+
+  const deck =
+    bridge.elements.find((e) => e.id === `S${midSpan}-D`) ??
+    bridge.elements.find((e) => e.group === 'span' && e.code === 'D')
 
   const spots: Hotspot[] = []
   if (pier) {
     spots.push({
-      id: 'pier-2',
+      id: pier.id,
       part: 'pier',
-      label: 'Pier 2',
+      label: pier.id,
       position: [-1.2, 0.55, 0.15],
       element: pier,
-      detail: `${bridge.defects.filter((d) => d.elementCode === pier.code).length || 2} Defects`,
+      detail: `${bridge.defects.filter((d) => d.elementName.startsWith(pier.groupId) || d.elementCode === pier.code).length || 0} defects · sig ${pier.significance}`,
     })
   }
   if (girder) {
     spots.push({
-      id: 'girder-g4',
+      id: girder.id,
       part: 'girder',
-      label: girder.code === 'GIR' ? 'Girder G4' : girder.name,
+      label: girder.id,
       position: [0.4, 1.35, 0.35],
       element: girder,
-      detail: `Condition: ${girder.band}`,
+      detail: `${girder.name} · ${girder.band}`,
     })
   }
   if (deck) {
     spots.push({
-      id: 'deck',
+      id: deck.id,
       part: 'deck',
-      label: 'Deck panel',
+      label: deck.id,
       position: [1.6, 1.55, 0],
       element: deck,
-      detail: `Score ${deck.conditionScore}`,
+      detail: `No.${deck.scheduleNo} · score ${deck.conditionScore}`,
     })
   }
   if (bearing) {
     spots.push({
-      id: 'bearing',
+      id: bearing.id,
       part: 'bearing',
-      label: 'Bearing line',
+      label: bearing.id,
       position: [-2.4, 1.05, 0.2],
       element: bearing,
       detail: `Risk ${bearing.riskScore}`,

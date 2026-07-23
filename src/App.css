@@ -915,6 +915,12 @@ p {
 .element-detail h3 {
   font-family: var(--font-display);
   font-size: 1.05rem;
+  margin-bottom: 0.25rem;
+}
+
+.element-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
   margin-bottom: 0.65rem;
 }
 

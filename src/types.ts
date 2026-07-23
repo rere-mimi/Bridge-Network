@@ -22,10 +22,21 @@ export type ConditionState = 1 | 2 | 3 | 4
 export type RiskLevel = 'low' | 'moderate' | 'high' | 'critical'
 export type ElementUnit = 'm²' | 'm' | 'each' | 'm³'
 export type ConditionBand = 'excellent' | 'good' | 'fair' | 'poor' | 'critical'
+export type ComponentGroupKind = 'abutment' | 'pier' | 'span' | 'approach'
 
 export type BridgeElement = {
+  /** Unique instance id, e.g. S1-D or P2-H */
+  id: string
+  /** Appendix B component code, e.g. D, G, H, B */
   code: string
+  /** Appendix B schedule number */
+  scheduleNo: number
   name: string
+  category: string
+  group: ComponentGroupKind
+  /** Group designation: A1, P1, S1, AP1 */
+  groupId: string
+  significance: 1 | 2 | 3 | 4
   unit: ElementUnit
   totalQuantity: number
   conditionScore: number

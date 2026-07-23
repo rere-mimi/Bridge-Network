@@ -95,18 +95,27 @@ export default function App() {
   const regions = [...new Set(BRIDGES.map((b) => b.region))]
   const types = [...new Set(BRIDGES.map((b) => b.structureType))]
 
+  const preferred =
+    bridge.elements.find((e) => e.id.includes('-G4')) ??
+    bridge.elements.find((e) => e.code === 'D') ??
+    bridge.elements[0]
+
   const activeElement =
     selectedElement ??
-    (bridge.elements[1]
+    (preferred
       ? {
-          id: 'default-el',
-          label: bridge.elements[1].name,
-          element: bridge.elements[1],
+          id: preferred.id,
+          label: preferred.id,
+          element: preferred,
         }
       : null)
 
   const elementDefects = bridge.defects.filter(
-    (d) => !activeElement || d.elementCode === activeElement.element.code || d.elementName.includes(activeElement.label.split(' ')[0]),
+    (d) =>
+      !activeElement ||
+      d.elementCode === activeElement.element.code ||
+      d.elementName === activeElement.element.id ||
+      d.elementName.includes(activeElement.element.groupId),
   )
 
   return (
@@ -439,7 +448,11 @@ export default function App() {
               >
                 {activeElement && (
                   <div className="element-detail">
-                    <h3>{activeElement.label}</h3>
+                    <h3>{activeElement.element.id}</h3>
+                    <p className="element-meta">
+                      No.{activeElement.element.scheduleNo} · {activeElement.element.code} ·{' '}
+                      {activeElement.element.category} · {activeElement.element.groupId}
+                    </p>
                     <div className="element-actions">
                       <button
                         type="button"
