@@ -284,7 +284,10 @@ export function TwinViewer({
   const focusTarget = selectedNode?.position ?? null
   const selectedMaterial = selectedNode?.element.material
   const materialCode = normalizeMaterial(selectedMaterial)
-  const drawingActive = !!defectTool && viewMode === '3d' && !!selectedElementId
+  /** Defect tools always draw on the 2D face board so UV stays correct in 3D. */
+  const drawingIn2d = !!defectTool && !!selectedElementId
+  const show3d = viewMode === '3d' && !drawingIn2d
+  const show2dDraw = drawingIn2d || viewMode === 'section'
 
   const elementSizeM = selectedNode?.sizeM ?? {
     length: bridge.lengthM * 0.25,
@@ -309,7 +312,13 @@ export function TwinViewer({
     if (!selectedElementId) return
     setDefectTool((t) => {
       const next = t === kind ? null : kind
-      if (next) onIsolateChange(true)
+      if (next) {
+        onIsolateChange(true)
+        // Force 2D drawing surface so defects map to the face for later 3D display
+        onViewMode('section')
+      } else if (viewMode === 'section') {
+        onViewMode('3d')
+      }
       return next
     })
   }
@@ -345,9 +354,10 @@ export function TwinViewer({
             className={viewMode === id ? 'active' : ''}
             onClick={() => {
               if (id === 'section') {
-                openSection()
+                onViewMode('section')
                 return
               }
+              if (id === '3d' && defectTool) setDefectTool(null)
               onViewMode(id)
             }}
           >
@@ -381,12 +391,23 @@ export function TwinViewer({
         </button>
         <button
           type="button"
-          className={viewMode === 'section' ? 'active' : ''}
+          className={viewMode === 'section' || drawingIn2d ? 'active' : ''}
           disabled={!selectedElementId}
-          title="Open 2D cross section in a new window"
+          title="Open 2D face view for defect drawing (popup overview also available)"
+          onClick={() => {
+            onViewMode('section')
+          }}
+        >
+          2D draw
+        </button>
+        <button
+          type="button"
+          className="ghost"
+          disabled={!selectedElementId}
+          title="Open printable 2D cross section in a new window"
           onClick={openSection}
         >
-          2D section
+          Section popup
         </button>
         <button
           type="button"
@@ -429,7 +450,7 @@ export function TwinViewer({
           disabled={!selectedElementId}
           title={
             selectedElementId
-              ? toolTitle('crack', selectedMaterial)
+              ? `${toolTitle('crack', selectedMaterial)} — opens 2D face drawing`
               : 'Select an element first to pin the defect'
           }
           onClick={() => toggleTool('crack')}
@@ -442,7 +463,7 @@ export function TwinViewer({
           disabled={!selectedElementId}
           title={
             selectedElementId
-              ? toolTitle('spall', selectedMaterial)
+              ? `${toolTitle('spall', selectedMaterial)} — opens 2D face drawing`
               : 'Select an element first to pin the defect'
           }
           onClick={() => toggleTool('spall')}
@@ -455,7 +476,7 @@ export function TwinViewer({
           disabled={!selectedElementId}
           title={
             selectedElementId
-              ? toolTitle('patch', selectedMaterial)
+              ? `${toolTitle('patch', selectedMaterial)} — opens 2D face drawing`
               : 'Select an element first to pin the defect'
           }
           onClick={() => toggleTool('patch')}
@@ -513,7 +534,7 @@ export function TwinViewer({
       )}
 
       <div className="viewer-stage" style={height ? { height, minHeight: height } : undefined}>
-        {(viewMode === '3d' || viewMode === 'section') && (
+        {show3d && (
           <>
             <Canvas camera={{ position: [5.5, 3.2, 6.5], fov: 42 }} shadows>
               <color attach="background" args={['#0b1220']} />
@@ -535,7 +556,6 @@ export function TwinViewer({
               <OrbitControls
                 ref={controlsRef}
                 makeDefault
-                enabled={!drawingActive}
                 enableDamping
                 dampingFactor={0.08}
                 maxPolarAngle={Math.PI / 2.02}
@@ -545,9 +565,10 @@ export function TwinViewer({
               <CameraFocus isolate={isolate} target={focusTarget} />
             </Canvas>
 
+            {/* Read-only defect overlay on 3D when not drawing */}
             <DefectDrawLayer
-              active={drawingActive}
-              tool={defectTool}
+              active={false}
+              tool={null}
               defects={drawnDefects}
               elementSizeM={elementSizeM}
               face={defectFace}
@@ -555,9 +576,8 @@ export function TwinViewer({
               elementName={selectedNode?.element.name}
               material={selectedMaterial}
               defectCode={defectCode ?? undefined}
-              onComplete={(defect) =>
-                onDrawnDefectsChange([defect, ...drawnDefects])
-              }
+              onComplete={() => undefined}
+              unrestricted
             />
 
             <div className="condition-scale">
@@ -610,13 +630,11 @@ export function TwinViewer({
             {showScale && <ScaleBar lengthM={bridge.lengthM} />}
 
             <p className="viewer-hint">
-              {drawingActive
-                ? `Defect locked to ${selectedNode?.element.name ?? 'element'} · ${FACE_LABEL[defectFace]} · draw only inside the highlighted face`
-                : !selectedElementId
-                  ? 'Select an element first — defects are pinned inside that element’s limits'
-                  : isolate
-                    ? 'Isolated · orbit around element centre · open 2D section for face views'
-                    : 'Click any element mesh to select · Isolate for close-up · pin defects inside the element face'}
+              {!selectedElementId
+                ? 'Select an element first — then pick a defect tool to draw on its 2D face'
+                : isolate
+                  ? 'Isolated · pick a defect tool to draw in 2D · or open popup section'
+                  : 'Click any element · pick Crack / Spall / Patch to draw in 2D'}
             </p>
             {isolate && selectedNode && (
               <div className="isolate-badge">
@@ -624,6 +642,46 @@ export function TwinViewer({
               </div>
             )}
           </>
+        )}
+
+        {show2dDraw && (
+          <div className="defect-2d-stage">
+            <DefectDrawLayer
+              active={drawingIn2d}
+              tool={defectTool}
+              defects={drawnDefects}
+              elementSizeM={elementSizeM}
+              face={defectFace}
+              selectedElementId={selectedElementId}
+              elementName={selectedNode?.element.name}
+              material={selectedMaterial}
+              defectCode={defectCode ?? undefined}
+              unrestricted
+              onComplete={(defect) =>
+                onDrawnDefectsChange([defect, ...drawnDefects])
+              }
+            />
+            {!drawingIn2d && (
+              <p className="viewer-hint defect-2d-hint">
+                2D face view · select Crack / Spall / Patch to draw on this face
+              </p>
+            )}
+            {drawingIn2d && (
+              <p className="viewer-hint defect-2d-hint">
+                Drawing on 2D · {FACE_LABEL[defectFace]} · defects stay pinned to this face in 3D
+              </p>
+            )}
+            <button
+              type="button"
+              className="page-btn defect-2d-back"
+              onClick={() => {
+                setDefectTool(null)
+                onViewMode('3d')
+              }}
+            >
+              Back to 3D
+            </button>
+          </div>
         )}
 
         {viewMode === 'map' && (
