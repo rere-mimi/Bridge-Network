@@ -14,6 +14,7 @@ import {
   nextStructureId,
   type StructureDraft,
 } from '../data/structureFactory'
+import { LocationPickerMap } from './LocationPickerMap'
 
 const BRIDGE_FAMILIES: StructureFamily[] = ['girder', 'box', 'arch', 'slab']
 const CULVERT_FAMILIES: StructureFamily[] = [
@@ -215,7 +216,7 @@ export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderP
 
       {step === 3 && (
         <section className="model-card">
-          <h2>Structure identity</h2>
+          <h2>Structure identity & location</h2>
           <div className="model-form-grid">
             <label className="model-field">
               Name
@@ -247,24 +248,43 @@ export function ModelBuilder({ existingIds, onCreated, onCancel }: ModelBuilderP
                 onChange={(e) => setYearBuilt(Number(e.target.value) || 2000)}
               />
             </label>
-            <label className="model-field">
-              Latitude
-              <input
-                type="number"
-                step="0.0001"
-                value={lat}
-                onChange={(e) => setLat(Number(e.target.value) || 0)}
-              />
-            </label>
-            <label className="model-field">
-              Longitude
-              <input
-                type="number"
-                step="0.0001"
-                value={lng}
-                onChange={(e) => setLng(Number(e.target.value) || 0)}
-              />
-            </label>
+          </div>
+
+          <div className="location-picker">
+            <div className="location-picker-fields">
+              <p className="model-help">
+                Set the site by typing coordinates or clicking the map.
+              </p>
+              <label className="model-field">
+                Latitude
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={lat}
+                  onChange={(e) => setLat(Number(e.target.value) || 0)}
+                />
+              </label>
+              <label className="model-field">
+                Longitude
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={lng}
+                  onChange={(e) => setLng(Number(e.target.value) || 0)}
+                />
+              </label>
+              <p className="location-picker-readout">
+                Selected: <code>{lat.toFixed(5)}, {lng.toFixed(5)}</code>
+              </p>
+            </div>
+            <LocationPickerMap
+              lat={lat}
+              lng={lng}
+              onPick={(nextLat, nextLng) => {
+                setLat(nextLat)
+                setLng(nextLng)
+              }}
+            />
           </div>
         </section>
       )}
