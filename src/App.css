@@ -2838,16 +2838,20 @@ p {
   font-family: var(--font-mono, ui-monospace, monospace);
 }
 
-.model-steps {
+.model-section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.45rem;
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1rem;
+  padding: 0.55rem 0;
+  margin: 0 0 0.85rem;
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.96), rgba(11, 18, 32, 0.88));
+  backdrop-filter: blur(8px);
 }
 
-.model-steps li {
+.model-section-nav-btn {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -2857,9 +2861,10 @@ p {
   color: var(--muted);
   font-size: 0.78rem;
   background: var(--panel-2);
+  cursor: pointer;
 }
 
-.model-steps li em {
+.model-section-nav-btn em {
   width: 1.25rem;
   height: 1.25rem;
   border-radius: 999px;
@@ -2871,15 +2876,24 @@ p {
   font-size: 0.72rem;
 }
 
-.model-steps li.active {
+.model-section-nav-btn:hover {
   border-color: rgba(56, 189, 248, 0.55);
   color: #e2e8f0;
 }
 
-.model-steps li.active em,
-.model-steps li.done em {
+.model-section-nav-btn:hover em {
   background: #0284c7;
   color: white;
+}
+
+.model-builder-scroll {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+.model-builder-scroll .model-card {
+  scroll-margin-top: 4.5rem;
 }
 
 .model-card {
@@ -3445,6 +3459,15 @@ p {
   align-items: center;
 }
 
+.model-builder-actions.sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.25rem;
+  background: linear-gradient(180deg, transparent, rgba(11, 18, 32, 0.92) 28%, rgba(11, 18, 32, 0.98));
+}
+
 .model-builder-nav {
   display: flex;
   gap: 0.5rem;
@@ -3460,8 +3483,8 @@ p {
 }
 
 @media (max-width: 800px) {
-  .model-steps {
-    grid-template-columns: 1fr;
+  .model-section-nav {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
