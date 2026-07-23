@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, cursor/live-dashboard-map-4cb3]
   workflow_dispatch:
 
 permissions:
