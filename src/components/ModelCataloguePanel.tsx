@@ -10,8 +10,14 @@ import {
   catalogueSummary,
   type StructureKind,
 } from '../data/modelCatalogue'
+import {
+  ARCH_DIAGRAM_PARTS,
+  ARCH_SPANDREL_OPTIONS,
+  validateArchComponents,
+  type ArchSpandrelType,
+} from '../data/archBridgeComponents'
 
-type Tab = 'types' | 'components' | 'elements' | 'materials'
+type Tab = 'types' | 'components' | 'elements' | 'materials' | 'arch'
 
 const KIND_LABEL: Record<StructureKind, string> = {
   bridge: 'Bridge',
@@ -27,6 +33,7 @@ export function ModelCataloguePanel() {
   const [tab, setTab] = useState<Tab>('types')
   const [kindFilter, setKindFilter] = useState<'all' | StructureKind>('all')
   const [structOnly, setStructOnly] = useState(true)
+  const [archType, setArchType] = useState<ArchSpandrelType>('closed')
 
   const types = useMemo(
     () =>
@@ -42,6 +49,16 @@ export function ModelCataloguePanel() {
   const elements = useMemo(
     () => (structOnly ? ELEMENTS.filter((e) => e.structural3d) : ELEMENTS),
     [structOnly],
+  )
+
+  const archSeedNos = useMemo(() => {
+    const opt = ARCH_SPANDREL_OPTIONS.find((o) => o.id === archType)!
+    return [200, opt.archSchedule, opt.spandrelSchedule, 400, 401]
+  }, [archType])
+
+  const archChecks = useMemo(
+    () => validateArchComponents(archSeedNos, archType),
+    [archSeedNos, archType],
   )
 
   return (
@@ -86,6 +103,7 @@ export function ModelCataloguePanel() {
             ['types', 'Structure types'],
             ['components', 'Components'],
             ['elements', 'Elements'],
+            ['arch', 'Arch diagram'],
             ['materials', 'Materials'],
           ] as const
         ).map(([id, label]) => (
@@ -227,6 +245,60 @@ export function ModelCataloguePanel() {
                     <td>{e.structural3d ? 'Yes' : 'No'}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === 'arch' && (
+        <section className="model-catalogue-section">
+          <p className="model-help">
+            Example diagram parts for an arch bridge (deck, crown, spandrel, arch rib/barrel,
+            springings, extrados, intrados, skewback/abutment, rise, span) mapped to Appendix B/C.
+          </p>
+          <div className="model-catalogue-filters">
+            <label>
+              Spandrel type
+              <select
+                value={archType}
+                onChange={(e) => setArchType(e.target.value as ArchSpandrelType)}
+              >
+                {ARCH_SPANDREL_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className={archChecks.every((c) => c.ok) ? 'arch-badge ok' : 'arch-badge fail'}>
+              {archChecks.every((c) => c.ok) ? 'Components valid' : 'Gaps found'}
+            </span>
+          </div>
+          <div className="model-catalogue-table-wrap">
+            <table className="model-catalogue-table">
+              <thead>
+                <tr>
+                  <th>Diagram part</th>
+                  <th>Role</th>
+                  <th>App. C</th>
+                  <th>App. B</th>
+                  <th>Validation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ARCH_DIAGRAM_PARTS.map((part) => {
+                  const check = archChecks.find((c) => c.diagram === part.diagram)
+                  return (
+                    <tr key={part.diagram}>
+                      <td>{part.diagram}</td>
+                      <td>{part.role}</td>
+                      <td>{part.scheduleNos.length ? part.scheduleNos.join(', ') : '—'}</td>
+                      <td>{part.componentNos.length ? part.componentNos.join(', ') : '—'}</td>
+                      <td className={check?.ok ? 'ok' : 'fail'}>{check?.detail ?? part.note}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

@@ -3,8 +3,11 @@
  * used when creating or updating a model (and by the 3D twin).
  */
 
+import type { ArchSpandrelType } from './archBridgeComponents'
+
 export type BeamSectionType = 'open-ibeam' | 't-beam' | 'box' | 'slab'
 export type PierType = 'wall' | 'multi-column' | 'trestle' | 'pile-bent'
+export type { ArchSpandrelType }
 
 /** Real-world sizes for an Appendix C element type (metres). */
 export type ElementSizeM = {
@@ -26,6 +29,10 @@ export type StructureGeometry = {
   columnsPerPier: number
   /** Columns / piles at each abutment (when applicable) */
   columnsPerAbutment: number
+  /** Closed (walls/fill) vs open (columns) deck arch — arch family only */
+  archSpandrelType?: ArchSpandrelType
+  /** Open-spandrel posts per span (element 206) */
+  spandrelColumnCount?: number
   /** Default sizes keyed by Appendix C schedule number */
   elementSizes: Record<number, ElementSizeM>
 }
@@ -113,14 +120,17 @@ export function defaultElementSizes(input: {
     }
   }
 
+  const archRise = Math.max(2.2, Math.min(8, spanLen * 0.28))
   return {
     100: { length: 0.05, width: w, height: 0.2 },
     200: { length: spanLen, width: w, height: 0.25 },
     201: { length: spanLen, width: 0.45, height: 1.2 },
     202: { length: spanLen, width: w * 0.55, height: 1.6 },
     203: { length: spanLen, width: w * 0.4, height: 2.2 },
-    205: { length: spanLen * 0.9, width: w * 0.5, height: 2.4 },
-    207: { length: spanLen, width: 0.35, height: 1.8 },
+    204: { length: spanLen * 0.95, width: 0.55, height: archRise, openingHeight: archRise * 0.85 },
+    205: { length: spanLen * 0.95, width: w * 0.75, height: archRise, openingHeight: archRise * 0.85 },
+    206: { length: 0.45, width: 0.45, height: archRise * 0.55 },
+    207: { length: spanLen * 0.9, width: 0.35, height: archRise * 0.7 },
     213: { length: 0.35, width: w * 0.85, height: 0.9 },
     214: { length: 0.45, width: w * 0.9, height: 1.1 },
     300: { length: 0.5, width: 0.4, height: 0.2 },
@@ -161,6 +171,8 @@ export function defaultGeometry(input: {
     pierType: 'multi-column',
     columnsPerPier: 2,
     columnsPerAbutment: 4,
+    archSpandrelType: input.family === 'arch' ? 'closed' : undefined,
+    spandrelColumnCount: input.family === 'arch' ? 6 : undefined,
     elementSizes: defaultElementSizes(input),
   }
 }
@@ -199,7 +211,8 @@ export function editableDimensionSchedules(
   selectedNos: number[],
 ): number[] {
   const bridgeNos = [
-    200, 201, 202, 203, 205, 207, 213, 214, 302, 400, 401, 402, 403, 404, 405, 406, 407,
+    200, 201, 202, 203, 204, 205, 206, 207, 213, 214, 302, 400, 401, 402, 403, 404, 405, 406,
+    407,
   ]
   const culvertNos = [600, 601, 602, 603, 604, 605, 606, 607, 609, 610]
   const allowed = new Set(kind === 'culvert' ? culvertNos : bridgeNos)

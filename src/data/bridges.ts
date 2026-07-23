@@ -1,5 +1,6 @@
 import type { BridgeAsset, ConditionBand } from '../types'
 import { buildAppendixCElements } from './buildElements'
+import { defaultGeometry } from './structureGeometry'
 
 function bandFromScore(score: number): ConditionBand {
   if (score >= 90) return 'excellent'
@@ -26,7 +27,8 @@ function forecast(base = 0.4) {
 function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
   const rows = [
     { keys: [200], label: 'Deck' },
-    { keys: [201, 202, 205], label: 'Beams / arch' },
+    { keys: [201, 202, 204, 205], label: 'Beams / arch' },
+    { keys: [206, 207], label: 'Spandrel' },
     { keys: [404, 407], label: 'Columns / piles' },
     { keys: [302, 300, 301], label: 'Bearings' },
     { keys: [402, 400], label: 'Pier cap / abutment' },
@@ -52,19 +54,30 @@ function makeBridge(
     riskBase?: number
   },
 ): BridgeAsset {
+  const geometry = defaultGeometry({
+    lengthM: partial.lengthM,
+    spans: partial.spans,
+    deckWidthM: partial.deckWidthM ?? 12,
+    kind: 'bridge',
+    family: partial.family,
+  })
   const elements = buildAppendixCElements({
     bridgeId: partial.id,
     spans: partial.spans,
     lengthM: partial.lengthM,
     family: partial.family,
+    deckWidthM: partial.deckWidthM,
     conditionBase: partial.conditionBase ?? 75,
     riskBase: partial.riskBase ?? 45,
     material: partial.material,
+    geometry,
   })
   const conditionIndex = avgCondition(elements)
   const { family: _f, conditionBase: _c, riskBase: _r, ...rest } = partial
   return {
     ...rest,
+    family: partial.family,
+    geometry,
     elements,
     conditionIndex,
     conditionBand: bandFromScore(conditionIndex),

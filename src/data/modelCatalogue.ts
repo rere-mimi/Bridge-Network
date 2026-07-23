@@ -330,7 +330,15 @@ export const STRUCTURE_TYPES: CatalogueStructureType[] = [
   { id: 'timber-bridge', name: 'Timber bridge', kind: 'bridge', source: 'tmr-appendix-c', materials: ['T'], componentNos: [2, 29, 22, 33, 50, 56, 59] },
   { id: 'box-girder', name: 'Closed web / box girder bridge', kind: 'bridge', source: 'tmr-appendix-c', materials: ['S', 'P', 'C'], componentNos: [1, 20, 21, 42, 50, 54, 56] },
   { id: 'truss-bridge', name: 'Truss bridge', kind: 'bridge', source: 'tmr-appendix-c', materials: ['S'], componentNos: [20, 23, 24, 28, 31, 50, 56] },
-  { id: 'arch-bridge', name: 'Arch bridge', kind: 'bridge', source: 'tmr-appendix-c', materials: ['S', 'P', 'C', 'M'], componentNos: [20, 25, 50, 56, 59] },
+  {
+    id: 'arch-bridge',
+    name: 'Arch bridge',
+    kind: 'bridge',
+    source: 'tmr-appendix-c',
+    materials: ['S', 'P', 'C', 'M'],
+    // Deck, arches, abutment, wingwall, columns/piles, footing — matches diagram parts
+    componentNos: [20, 25, 50, 51, 56, 59],
+  },
   { id: 'cable-stayed', name: 'Cable / hanger bridge', kind: 'bridge', source: 'tmr-appendix-c', materials: ['S', 'C'], componentNos: [20, 26, 50, 56] },
   { id: 'concrete-culvert', name: 'Concrete culvert (box / pipe / arch)', kind: 'culvert', source: 'tmr-appendix-c', materials: ['P', 'C'], componentNos: [80, 81, 82, 83, 84, 85] },
   { id: 'steel-culvert', name: 'Steel culvert (pipe / arch)', kind: 'culvert', source: 'tmr-appendix-c', materials: ['S'], componentNos: [80, 83, 84, 85] },

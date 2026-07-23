@@ -98,7 +98,7 @@ function applySize(
   spanLength: number,
 ): ElementSizeM | undefined {
   const size = { ...sizeForSchedule(geometry, scheduleNo) }
-  if (size.length == null && [200, 201, 202, 203, 205].includes(scheduleNo)) {
+  if (size.length == null && [200, 201, 202, 203, 204, 205].includes(scheduleNo)) {
     size.length = spanLength
   }
   return Object.keys(size).length ? size : undefined
@@ -132,6 +132,8 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
   const beamIsOpen = geometry.beamType === 'open-ibeam' || geometry.beamType === 't-beam'
   const beamIsBox = geometry.beamType === 'box'
   const beamIsSlab = geometry.beamType === 'slab'
+  const archSpandrel = geometry.archSpandrelType ?? 'closed'
+  const spandrelColumnCount = Math.max(3, geometry.spandrelColumnCount ?? 6)
 
   const spanLength = lengthM / Math.max(spans, 1)
   const culvert = isCulvertFamily(family)
@@ -157,8 +159,15 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
 
       if (family === 'girder' && el.no === 202 && !beamIsBox) continue
       if (family === 'box' && el.no === 201 && !beamIsOpen) continue
-      if (family !== 'arch' && (el.no === 204 || el.no === 205 || el.no === 207)) continue
-      if (family === 'arch' && (el.no === 201 || el.no === 202)) continue
+      if (family !== 'arch' && (el.no === 204 || el.no === 205 || el.no === 206 || el.no === 207)) {
+        continue
+      }
+      if (family === 'arch') {
+        if (el.no === 201 || el.no === 202) continue
+        // Closed: barrel 205 + walls 207 · Open: ribs 204 + columns 206
+        if (archSpandrel === 'closed' && (el.no === 204 || el.no === 206)) continue
+        if (archSpandrel === 'open' && (el.no === 205 || el.no === 207)) continue
+      }
 
       // Pier type filters
       if (group === 'pier') {
@@ -181,6 +190,8 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
         quantity = group === 'pier' ? columnsPerPier : columnsPerAbutment
       }
       if (el.no === 403) quantity = 1
+      if (el.no === 206) quantity = spandrelColumnCount
+      if (el.no === 207) quantity = Math.round(spanLength * 2)
       if (el.no >= 600 && el.no <= 603) quantity = Math.round(lengthM)
 
       const desc = descriptionForElement(el.no, preferredMaterial)
@@ -203,6 +214,38 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
             code,
             scheduleNo: el.no,
             name: `${el.name} ${g}`,
+            category: el.category,
+            majorGroup,
+            subgroup,
+            group,
+            groupId,
+            significance: el.significance as 1 | 2 | 3 | 4,
+            unit: el.unit,
+            totalQuantity: 1,
+            conditionScore,
+            riskScore,
+            band: bandFromScore(conditionScore),
+            material: desc?.material ?? preferredMaterial,
+            descriptionTitle: desc?.title,
+            description: desc?.description,
+            sizeM,
+          })
+        }
+        continue
+      }
+
+      // Open-spandrel columns: one inventory row per post on the span
+      if (el.no === 206 && group === 'span') {
+        for (let c = 1; c <= spandrelColumnCount; c++) {
+          const id = formatElementId(bridgeId, groupId, el.no, c)
+          const conditionScore = hashScore(id, conditionBase - 3)
+          const riskScore = hashScore(`${id}-r`, riskBase + 5)
+          elements.push({
+            id,
+            bridgeId,
+            code,
+            scheduleNo: el.no,
+            name: `${el.name} ${c}`,
             category: el.category,
             majorGroup,
             subgroup,

@@ -45,6 +45,7 @@ export type ElementSizeM = {
 
 export type BeamSectionType = 'open-ibeam' | 't-beam' | 'box' | 'slab'
 export type PierType = 'wall' | 'multi-column' | 'trestle' | 'pile-bent'
+export type ArchSpandrelType = 'closed' | 'open'
 
 /** Editable geometry when creating / updating a model. */
 export type StructureGeometry = {
@@ -53,6 +54,10 @@ export type StructureGeometry = {
   pierType: PierType
   columnsPerPier: number
   columnsPerAbutment: number
+  /** Closed (walls/fill) vs open (columns) deck arch — arch family only */
+  archSpandrelType?: ArchSpandrelType
+  /** Open-spandrel posts per span (element 206) */
+  spandrelColumnCount?: number
   elementSizes: Record<number, ElementSizeM>
 }
 

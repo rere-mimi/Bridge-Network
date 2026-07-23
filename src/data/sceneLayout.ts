@@ -148,6 +148,113 @@ function ibeamParts(
   ]
 }
 
+/** Parabolic deck-arch y (rise at crown, 0 at springings). Local x in [-half, half]. */
+function archRiseAt(x: number, halfSpan: number, rise: number) {
+  const t = halfSpan <= 0 ? 0 : x / halfSpan
+  return rise * (1 - t * t)
+}
+
+/**
+ * Arch rib / barrel segments along a parabola (span along X, rise in Y).
+ * Matches diagram: springings at ends, crown at mid-span, intrados/extrados via ring thickness.
+ */
+function archBarrelParts(
+  spanScene: number,
+  riseScene: number,
+  ringThickness: number,
+  ribWidth: number,
+  color: string,
+  zOffset = 0,
+  segments = 14,
+): ScenePart[] {
+  const parts: ScenePart[] = []
+  const L = Math.max(0.8, spanScene * 0.94)
+  const half = L / 2
+  const rise = Math.max(0.45, riseScene)
+
+  for (let i = 0; i < segments; i++) {
+    const t0 = i / segments
+    const t1 = (i + 1) / segments
+    const x0 = -half + t0 * L
+    const x1 = -half + t1 * L
+    const xm = (x0 + x1) / 2
+    const y0 = archRiseAt(x0, half, rise)
+    const y1 = archRiseAt(x1, half, rise)
+    const ym = archRiseAt(xm, half, rise)
+    const dx = x1 - x0
+    const dy = y1 - y0
+    const segLen = Math.hypot(dx, dy)
+    const angle = Math.atan2(dy, dx)
+    parts.push({
+      position: [xm, ym, zOffset],
+      size: [Math.max(0.12, segLen * 1.08), ringThickness, ribWidth],
+      rotation: [0, 0, angle],
+      color,
+    })
+  }
+  return parts
+}
+
+/** Closed-spandrel fill between barrel extrados and deck level (diagram “spandrel”). */
+function closedSpandrelFillParts(
+  spanScene: number,
+  riseScene: number,
+  roadW: number,
+  color: string,
+  steps = 8,
+): ScenePart[] {
+  const parts: ScenePart[] = []
+  const L = Math.max(0.8, spanScene * 0.9)
+  const half = L / 2
+  const rise = Math.max(0.45, riseScene)
+  const deckY = rise + 0.08
+
+  for (let i = 0; i < steps; i++) {
+    const t = (i + 0.5) / steps
+    const x = -half + t * L
+    const archY = archRiseAt(x, half, rise)
+    const fillH = Math.max(0.05, deckY - archY - 0.06)
+    if (fillH < 0.08) continue
+    const sliceW = (L / steps) * 1.05
+    // Solid fill across most of the roadway width
+    parts.push({
+      position: [x, archY + fillH * 0.5 + 0.02, 0],
+      size: [sliceW, fillH, roadW * 0.7],
+      color,
+    })
+  }
+  return parts
+}
+
+/** Spandrel wall elevation following the arch (element 207). */
+function spandrelWallParts(
+  spanScene: number,
+  riseScene: number,
+  wallThickness: number,
+  z: number,
+  color: string,
+  steps = 10,
+): ScenePart[] {
+  const parts: ScenePart[] = []
+  const L = Math.max(0.8, spanScene * 0.88)
+  const half = L / 2
+  const rise = Math.max(0.45, riseScene)
+  const deckY = rise + 0.05
+
+  for (let i = 0; i < steps; i++) {
+    const t = (i + 0.5) / steps
+    const x = -half + t * L
+    const archY = archRiseAt(x, half, rise)
+    const h = Math.max(0.08, deckY - archY)
+    parts.push({
+      position: [x, archY + h * 0.5, z],
+      size: [(L / steps) * 1.08, h, wallThickness],
+      color,
+    })
+  }
+  return parts
+}
+
 /**
  * Build selectable 3D nodes with realistic composite geometry.
  * Axes: X = roadway, Z = stream.
@@ -490,50 +597,148 @@ function buildBridgeNodes(bridge: BridgeAsset): SceneNode[] {
           }
           break
         }
-        case 205:
+        case 204: {
+          // Open spandrel arch ribs — two parallel ribs under the deck
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: spanLenM,
+            width: 0.55,
+            height: 3.2,
+          })
+          const rise = Math.max(0.7, mToScene(bridge, sizeM.height, 'y'))
+          const ribW = Math.max(0.12, mToScene(bridge, sizeM.width, 'z'))
+          const ringT = Math.max(0.1, rise * 0.12)
+          const zOff = roadHalf * 0.42
           node = {
             element: el,
-            position: [x, DECK_Y - 0.55, 0],
-            sizeM: { length: spanLenM, width: deckWidthM * 0.5, height: 2.4 },
+            position: [x, DECK_Y - rise - 0.15, 0],
+            sizeM,
             color,
             faces: ['front', 'side', 'top'],
             parts: [
+              ...archBarrelParts(spanLenScene, rise, ringT, ribW, color, -zOff),
+              ...archBarrelParts(spanLenScene, rise, ringT, ribW, color, zOff),
+            ],
+            kind: 'solid',
+          }
+          break
+        }
+        case 205: {
+          // Closed spandrel arch — barrel + solid spandrel fill (diagram closed-spandrel)
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: spanLenM,
+            width: deckWidthM * 0.75,
+            height: 3.2,
+          })
+          const rise = Math.max(0.75, mToScene(bridge, sizeM.height, 'y'))
+          const ringT = Math.max(0.12, rise * 0.14)
+          const barrelW = Math.max(roadW * 0.55, mToScene(bridge, sizeM.width * 0.55, 'z'))
+          node = {
+            element: el,
+            position: [x, DECK_Y - rise - 0.12, 0],
+            sizeM,
+            color,
+            faces: ['front', 'side', 'top'],
+            parts: [
+              ...archBarrelParts(spanLenScene, rise, ringT, barrelW, color, 0, 16),
+              ...closedSpandrelFillParts(spanLenScene, rise, roadW, color, 10),
+            ],
+            kind: 'solid',
+          }
+          break
+        }
+        case 206: {
+          // Spandrel column — post from arch rib up to deck (open spandrel)
+          const siblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === 206,
+          )
+          const count = Math.max(siblings.length, 3)
+          const idx = girderIndex(el)
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: 0.45,
+            width: 0.45,
+            height: 1.6,
+          })
+          const colW = Math.max(0.08, mToScene(bridge, sizeM.width, 'z'))
+          const archSiblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === 204,
+          )
+          const archSize = archSiblings[0]
+            ? toSceneSizeM(resolveSize(bridge, archSiblings[0]), {
+                length: spanLenM,
+                width: 0.55,
+                height: 3.2,
+              })
+            : { length: spanLenM, width: 0.55, height: 3.2 }
+          const rise = Math.max(0.7, mToScene(bridge, archSize.height, 'y'))
+          const L = spanLenScene * 0.88
+          const half = L / 2
+          // Keep posts off the springings
+          const t = count <= 1 ? 0.5 : (idx - 0.5) / count
+          const localX = -half + t * L
+          const archY = archRiseAt(localX, half, rise)
+          const topY = rise + 0.05
+          const colH = Math.max(0.15, topY - archY)
+          const zRib = roadHalf * 0.42
+          node = {
+            element: el,
+            position: [x, DECK_Y - rise - 0.15, 0],
+            sizeM,
+            color,
+            faces: ['front', 'side', 'end'],
+            parts: [
               {
-                position: [0, 0.35, 0],
-                size: [spanLenScene * 0.55, 0.22, roadW * 0.55],
+                position: [localX, archY + colH * 0.5, -zRib],
+                size: [colW, colH, colW],
                 color,
               },
               {
-                position: [-spanLenScene * 0.22, -0.15, 0],
-                size: [0.28, 0.95, roadW * 0.35],
-                color,
-              },
-              {
-                position: [spanLenScene * 0.22, -0.15, 0],
-                size: [0.28, 0.95, roadW * 0.35],
+                position: [localX, archY + colH * 0.5, zRib],
+                size: [colW, colH, colW],
                 color,
               },
             ],
             kind: 'solid',
           }
           break
-        case 207:
+        }
+        case 207: {
+          // Spandrel walls along each elevation face
+          const size = resolveSize(bridge, el)
+          const sizeM = toSceneSizeM(size, {
+            length: spanLenM,
+            width: 0.35,
+            height: 2.2,
+          })
+          const archEl = bridge.elements.find(
+            (e) => e.groupId === el.groupId && e.scheduleNo === 205,
+          )
+          const archSize = archEl
+            ? toSceneSizeM(resolveSize(bridge, archEl), {
+                length: spanLenM,
+                width: deckWidthM * 0.75,
+                height: 3.2,
+              })
+            : { length: spanLenM, width: deckWidthM * 0.75, height: 3.2 }
+          const rise = Math.max(0.75, mToScene(bridge, archSize.height, 'y'))
+          const wallT = Math.max(0.06, mToScene(bridge, sizeM.width, 'z'))
+          const z = roadHalf * 0.38
           node = {
             element: el,
-            position: [x, DECK_Y - 0.2, roadHalf * 0.55],
-            sizeM: { length: spanLenM, width: 0.4, height: 1.8 },
+            position: [x, DECK_Y - rise - 0.12, 0],
+            sizeM,
             color,
             faces: ['front', 'side', 'top'],
             parts: [
-              {
-                position: [0, 0, 0],
-                size: [spanLenScene * 0.8, 0.55, 0.12],
-                color,
-              },
+              ...spandrelWallParts(spanLenScene, rise, wallT, -z, color),
+              ...spandrelWallParts(spanLenScene, rise, wallT, z, color),
             ],
             kind: 'solid',
           }
           break
+        }
         case 211:
         case 213:
         case 214:

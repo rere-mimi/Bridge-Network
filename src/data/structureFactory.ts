@@ -33,7 +33,8 @@ function forecast(base = 0.4) {
 function heatFromElements(spans: number, elements: BridgeAsset['elements']) {
   const rows = [
     { keys: [200, 600, 601, 602, 603], label: 'Primary member' },
-    { keys: [201, 202, 205], label: 'Beams / arch' },
+    { keys: [201, 202, 204, 205], label: 'Beams / arch' },
+    { keys: [206, 207], label: 'Spandrel' },
     { keys: [404, 405, 407, 610], label: 'Columns / piles' },
     { keys: [302, 300, 301], label: 'Bearings' },
     { keys: [402, 400, 403, 606], label: 'Supports / headwall' },

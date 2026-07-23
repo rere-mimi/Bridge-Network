@@ -23,6 +23,11 @@ import {
   PIER_TYPE_OPTIONS,
   type StructureGeometry,
 } from '../data/structureGeometry'
+import {
+  ARCH_SPANDREL_OPTIONS,
+  validateArchComponents,
+  type ArchSpandrelType,
+} from '../data/archBridgeComponents'
 import { LocationPickerMap } from './LocationPickerMap'
 
 const BRIDGE_FAMILIES: StructureFamily[] = ['girder', 'box', 'arch', 'slab']
@@ -104,6 +109,12 @@ export function ModelBuilder({
   )
   const [columnsPerAbutment, setColumnsPerAbutment] = useState(
     seed?.geometry.columnsPerAbutment ?? 4,
+  )
+  const [archSpandrelType, setArchSpandrelType] = useState<ArchSpandrelType>(
+    seed?.geometry.archSpandrelType ?? 'closed',
+  )
+  const [spandrelColumnCount, setSpandrelColumnCount] = useState(
+    seed?.geometry.spandrelColumnCount ?? 6,
   )
   const [elementSizes, setElementSizes] = useState<Record<number, ElementSizeM>>(
     () => seed?.geometry.elementSizes ?? defaultGeometry({
@@ -202,6 +213,11 @@ export function ModelBuilder({
     else if (next === 'slab') {
       setBeamType('slab')
       setGirderCount(0)
+    } else if (next === 'arch') {
+      setBeamType('slab')
+      setGirderCount(0)
+      setArchSpandrelType('closed')
+      setSpandrelColumnCount(6)
     } else if (next === 'girder') setBeamType('open-ibeam')
     rebuildSizes({
       kind,
@@ -209,7 +225,17 @@ export function ModelBuilder({
       lengthM,
       spans,
       deckWidthM,
-      girderCount: next === 'slab' ? 0 : girderCount || 4,
+      girderCount: next === 'slab' || next === 'arch' ? 0 : girderCount || 4,
+    })
+  }
+
+  function chooseArchSpandrel(next: ArchSpandrelType) {
+    setArchSpandrelType(next)
+    const opt = ARCH_SPANDREL_OPTIONS.find((o) => o.id === next)
+    if (!opt) return
+    setSelectedNos((prev) => {
+      const without = prev.filter((n) => ![204, 205, 206, 207].includes(n))
+      return [...without, opt.archSchedule, opt.spandrelSchedule]
     })
   }
 
@@ -283,6 +309,8 @@ export function ModelBuilder({
       pierType,
       columnsPerPier,
       columnsPerAbutment,
+      archSpandrelType: family === 'arch' ? archSpandrelType : undefined,
+      spandrelColumnCount: family === 'arch' ? spandrelColumnCount : undefined,
       elementSizes,
     }
   }
@@ -326,7 +354,9 @@ export function ModelBuilder({
 
   const showColumnCounts =
     kind === 'bridge' && (pierType === 'multi-column' || pierType === 'trestle' || pierType === 'pile-bent')
-  const showBeamCount = kind === 'bridge' && beamType !== 'slab'
+  const showBeamCount = kind === 'bridge' && family !== 'arch' && beamType !== 'slab'
+  const archChecks =
+    family === 'arch' ? validateArchComponents(selectedNos, archSpandrelType) : null
 
   return (
     <div className="model-builder">
@@ -569,33 +599,84 @@ export function ModelBuilder({
 
           {kind === 'bridge' && (
             <>
-              <h3 className="model-subhead">Beam / superstructure</h3>
-              <div className="model-choice-grid compact">
-                {BEAM_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={beamType === opt.id ? 'active' : ''}
-                    onClick={() => chooseBeamType(opt.id)}
-                  >
-                    <strong>{opt.label}</strong>
-                    <span>{opt.hint}</span>
-                  </button>
-                ))}
-              </div>
-              {showBeamCount && (
-                <div className="model-form-grid">
-                  <label className="model-field">
-                    Beams / girders per span
-                    <input
-                      type="number"
-                      min={1}
-                      max={12}
-                      value={girderCount}
-                      onChange={(e) => setGirderCount(Math.max(1, Number(e.target.value) || 1))}
-                    />
-                  </label>
-                </div>
+              {family === 'arch' ? (
+                <>
+                  <h3 className="model-subhead">Arch form (diagram)</h3>
+                  <p className="model-help">
+                    Validated against a standard arch-bridge diagram: deck, crown, spandrel, arch
+                    rib/barrel, springings, skewback/abutment, rise and span.
+                  </p>
+                  <div className="model-choice-grid compact">
+                    {ARCH_SPANDREL_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={archSpandrelType === opt.id ? 'active' : ''}
+                        onClick={() => chooseArchSpandrel(opt.id)}
+                      >
+                        <strong>{opt.label}</strong>
+                        <span>{opt.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {archSpandrelType === 'open' && (
+                    <div className="model-form-grid">
+                      <label className="model-field">
+                        Spandrel columns per span
+                        <input
+                          type="number"
+                          min={3}
+                          max={16}
+                          value={spandrelColumnCount}
+                          onChange={(e) =>
+                            setSpandrelColumnCount(Math.max(3, Number(e.target.value) || 3))
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+                  {archChecks && (
+                    <ul className="arch-validate-list">
+                      {archChecks.map((c) => (
+                        <li key={c.diagram} className={c.ok ? 'ok' : 'fail'}>
+                          <strong>{c.diagram}</strong>
+                          <span>{c.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h3 className="model-subhead">Beam / superstructure</h3>
+                  <div className="model-choice-grid compact">
+                    {BEAM_TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={beamType === opt.id ? 'active' : ''}
+                        onClick={() => chooseBeamType(opt.id)}
+                      >
+                        <strong>{opt.label}</strong>
+                        <span>{opt.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {showBeamCount && (
+                    <div className="model-form-grid">
+                      <label className="model-field">
+                        Beams / girders per span
+                        <input
+                          type="number"
+                          min={1}
+                          max={12}
+                          value={girderCount}
+                          onChange={(e) => setGirderCount(Math.max(1, Number(e.target.value) || 1))}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </>
               )}
 
               <h3 className="model-subhead">Pier / substructure</h3>
@@ -719,8 +800,20 @@ export function ModelBuilder({
           <h2>Appendix C element set</h2>
           <p className="model-help">
             Toggle which standard elements to include. Descriptions come from Appendix F for material
-            code <code>{preferredMaterial}</code>. Beam type{' '}
-            <strong>{BEAM_TYPE_OPTIONS.find((b) => b.id === beamType)?.label}</strong>
+            code <code>{preferredMaterial}</code>.{' '}
+            {family === 'arch' ? (
+              <>
+                Arch form{' '}
+                <strong>
+                  {ARCH_SPANDREL_OPTIONS.find((o) => o.id === archSpandrelType)?.label}
+                </strong>
+              </>
+            ) : (
+              <>
+                Beam type{' '}
+                <strong>{BEAM_TYPE_OPTIONS.find((b) => b.id === beamType)?.label}</strong>
+              </>
+            )}
             {kind === 'bridge' && (
               <>
                 {' '}

@@ -601,7 +601,10 @@ export function elementsForFamily(family: StructureFamily): StandardElement[] {
     include.add(214)
   }
   if (family === 'arch') {
+    // Closed and open spandrel sets — buildElements picks by geometry.archSpandrelType
+    include.add(204)
     include.add(205)
+    include.add(206)
     include.add(207)
   }
 
