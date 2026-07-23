@@ -736,6 +736,120 @@ p {
     linear-gradient(180deg, #0b1220, #102033);
 }
 
+.section-window {
+  min-height: 100vh;
+  padding: 1.25rem 1.5rem 2rem;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.12), transparent 42%),
+    linear-gradient(180deg, #0b1220, #111827 55%, #0f172a);
+  color: var(--text, #e2e8f0);
+}
+
+.section-window.empty {
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.section-window-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.section-window-header .eyebrow {
+  margin: 0 0 0.25rem;
+  color: #7dd3fc;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.section-window-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.45rem;
+  font-family: var(--font-display, Georgia, serif);
+}
+
+.section-window-header p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.section-window-dims {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.section-window-dims div {
+  min-width: 88px;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.section-window-dims span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.section-window-dims strong {
+  font-size: 1.05rem;
+}
+
+.face-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.face-panel {
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  overflow: hidden;
+}
+
+.face-panel header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.face-panel header strong {
+  font-size: 0.92rem;
+}
+
+.face-panel header span {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.face-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #020617;
+}
+
+.section-window-note {
+  margin: 1rem 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
 .section-meta {
   display: flex;
   justify-content: space-between;

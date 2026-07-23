@@ -6,6 +6,7 @@ import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
 import type { BridgeElement, DrawnDefect, Filters, PlatformModule, SidebarId } from './types'
 import './App.css'
+import { openCrossSectionWindow } from './components/CrossSectionApp'
 
 const TOP_NAV: Array<{ id: PlatformModule; label: string }> = [
   { id: 'overview', label: 'Overview' },
@@ -487,7 +488,7 @@ export default function App() {
                         className="page-btn primary"
                         onClick={() => {
                           setIsolate(true)
-                          setViewMode('section')
+                          openCrossSectionWindow(bridge.id, activeElement.element.id)
                         }}
                       >
                         2D cross section
