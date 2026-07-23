@@ -150,6 +150,13 @@ export function buildStructureFromDraft(
       traffic: 16,
       other: 11,
     },
+    // Drop stale NSHM result when coordinates change; enrichment re-queries HazardMaps API.
+    seismicHazard:
+      previous?.seismicHazard &&
+      Math.abs(previous.seismicHazard.lat - draft.lat) < 0.0005 &&
+      Math.abs(previous.seismicHazard.lng - draft.lng) < 0.0005
+        ? previous.seismicHazard
+        : undefined,
     maintenanceForecast: previous?.maintenanceForecast ?? forecast(0.35),
     heatmap: heatFromElements(Math.max(1, draft.spans), elements),
   }

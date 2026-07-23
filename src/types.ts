@@ -159,6 +159,23 @@ export type BridgeAsset = {
     traffic: number
     other: number
   }
+  /** NZ NSHM site hazard used for seismic risk (HazardMaps / Kororaa API). */
+  seismicHazard?: {
+    lat: number
+    lng: number
+    /** PGA (g) at 10% PoE in 50 years, Vs30 ≈ 400 m/s */
+    pga: number
+    vs30: number
+    poe: number
+    investigationYears: number
+    model: string
+    source: 'nshm-api' | 'regional-fallback'
+    locationCode?: string
+    locationName?: string
+    fetchedAt: string
+    mapUrl: string
+    curvesUrl: string
+  }
   maintenanceForecast: Array<{
     year: number
     routine: number

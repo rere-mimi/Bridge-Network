@@ -294,9 +294,12 @@ export function ModulePages({
       )}
 
       {page === 'risk' && (
-        <PageShell title="Risk" subtitle="Risk ranking and category breakdown.">
+        <PageShell
+          title="Risk"
+          subtitle="Risk ranking with NZ NSHM seismic hazard for each structure."
+        >
           <div className="page-grid-2">
-            <ResizablePanel title="Risk ranking" storageKey="risk-rank" defaultHeight={320}>
+            <ResizablePanel title="Risk ranking" storageKey="risk-rank" defaultHeight={360}>
               <ul className="page-list">
                 {[...bridges]
                   .sort((a, b) => b.riskScore - a.riskScore)
@@ -306,13 +309,16 @@ export function ModulePages({
                         <strong>{item.name}</strong>
                         <span>
                           {item.riskLevel} · {item.riskScore}/100
+                          {item.seismicHazard
+                            ? ` · PGA ${item.seismicHazard.pga.toFixed(2)}g`
+                            : ''}
                         </span>
                       </button>
                     </li>
                   ))}
               </ul>
             </ResizablePanel>
-            <ResizablePanel title={`${bridge.name} breakdown`} storageKey="risk-break" defaultHeight={320}>
+            <ResizablePanel title={`${bridge.name} breakdown`} storageKey="risk-break" defaultHeight={360}>
               <ul className="page-stats">
                 <li>Structural {bridge.riskBreakdown.structural}%</li>
                 <li>Hydraulic {bridge.riskBreakdown.hydraulic}%</li>
@@ -320,9 +326,57 @@ export function ModulePages({
                 <li>Traffic {bridge.riskBreakdown.traffic}%</li>
                 <li>Other {bridge.riskBreakdown.other}%</li>
               </ul>
-              <button type="button" className="page-btn primary" onClick={onOpenOverview}>
-                View in twin
-              </button>
+              {bridge.seismicHazard ? (
+                <div className="nshm-hazard-card compact">
+                  <p className="nshm-hazard-label">NZ NSHM (Hazard Maps)</p>
+                  <strong>
+                    PGA {bridge.seismicHazard.pga.toFixed(2)} g
+                    <em>
+                      {' '}
+                      · 10% in {bridge.seismicHazard.investigationYears} yr · Vs30{' '}
+                      {bridge.seismicHazard.vs30} m/s
+                    </em>
+                  </strong>
+                  <p>
+                    Site {bridge.lat.toFixed(3)}, {bridge.lng.toFixed(3)}
+                    {bridge.seismicHazard.locationName
+                      ? ` · ${bridge.seismicHazard.locationName}`
+                      : ''}
+                    {' · '}
+                    {bridge.seismicHazard.source === 'nshm-api'
+                      ? bridge.seismicHazard.model
+                      : 'regional estimate'}
+                  </p>
+                  <div className="nshm-hazard-actions">
+                    <a
+                      className="page-btn primary"
+                      href={bridge.seismicHazard.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Hazard Maps
+                    </a>
+                    <a
+                      className="page-btn"
+                      href={bridge.seismicHazard.curvesUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Site curves
+                    </a>
+                    <button type="button" className="page-btn" onClick={onOpenOverview}>
+                      View in twin
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="nshm-hazard-pending">Assessing NSHM seismic hazard…</p>
+                  <button type="button" className="page-btn primary" onClick={onOpenOverview}>
+                    View in twin
+                  </button>
+                </>
+              )}
             </ResizablePanel>
           </div>
         </PageShell>
@@ -464,7 +518,10 @@ export function ModulePages({
       )}
 
       {page === 'maps' && (
-        <PageShell title="Maps" subtitle="Network map navigation.">
+        <PageShell
+          title="Maps"
+          subtitle="Network map navigation and NZ NSHM seismic hazard."
+        >
           <div className="maps-page-frame">
             <MiniMap
               bridges={bridges}
@@ -473,9 +530,30 @@ export function ModulePages({
               compact={false}
             />
           </div>
-          <button type="button" className="page-btn primary" onClick={onOpenOverview}>
-            Open selected in twin
-          </button>
+          <div className="nshm-hazard-actions" style={{ marginTop: '0.75rem' }}>
+            <button type="button" className="page-btn primary" onClick={onOpenOverview}>
+              Open selected in twin
+            </button>
+            {bridge.seismicHazard ? (
+              <a
+                className="page-btn"
+                href={bridge.seismicHazard.mapUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                NSHM Hazard Maps · PGA {bridge.seismicHazard.pga.toFixed(2)}g
+              </a>
+            ) : (
+              <a
+                className="page-btn"
+                href="https://nshm.gns.cri.nz/HazardMaps"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open NZ NSHM Hazard Maps
+              </a>
+            )}
+          </div>
         </PageShell>
       )}
 

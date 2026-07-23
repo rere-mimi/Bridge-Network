@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { enrichStructuresWithNshm, enrichStructureWithNshm, needsNshmEnrichment } from './data/applySeismicRisk'
 import { conditionLabel } from './data/bridges'
 import {
   deleteUserStructure,
@@ -83,6 +84,23 @@ export default function App() {
     setIsolate(false)
   }, [bridge?.id])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const needsLookup = structures.some(needsNshmEnrichment)
+      if (!needsLookup) return
+      const enriched = await enrichStructuresWithNshm(structures)
+      if (!cancelled) setStructures(enriched)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    structures
+      .map((s) => `${s.id}:${s.lat.toFixed(4)},${s.lng.toFixed(4)}:${needsNshmEnrichment(s) ? '0' : '1'}`)
+      .join('|'),
+  ])
+
   const activePage = resolveActivePage(module, sidebar)
   const showOverview = activePage === 'overview' || activePage === 'home'
 
@@ -105,10 +123,12 @@ export default function App() {
     setEditingId(null)
   }
 
-  function handleSaved(structure: BridgeAsset) {
-    const next = saveUserStructure(structure)
-    setStructures(next)
-    setSelectedId(structure.id)
+  async function handleSaved(structure: BridgeAsset) {
+    const withHazard = await enrichStructureWithNshm(structure)
+    const next = saveUserStructure(withHazard)
+    const enriched = await enrichStructuresWithNshm(next)
+    setStructures(enriched)
+    setSelectedId(withHazard.id)
     setEditingId(null)
     setModule('overview')
     setSidebar('home')
@@ -668,9 +688,9 @@ export default function App() {
             <ResizablePanel
               title="Risk dashboard"
               storageKey="risk"
-              defaultHeight={220}
-              minHeight={160}
-              maxHeight={420}
+              defaultHeight={280}
+              minHeight={180}
+              maxHeight={480}
               selected={selectedPanel === 'risk'}
               onSelect={() => setSelectedPanel('risk')}
             >
@@ -699,6 +719,47 @@ export default function App() {
                   <li>Traffic {bridge.riskBreakdown.traffic}%</li>
                 </ul>
               </div>
+              {bridge.seismicHazard ? (
+                <div className="nshm-hazard-card">
+                  <p className="nshm-hazard-label">NZ NSHM seismic hazard</p>
+                  <strong>
+                    PGA {bridge.seismicHazard.pga.toFixed(2)} g
+                    <em>
+                      {' '}
+                      · 10% in {bridge.seismicHazard.investigationYears} yr · Vs30{' '}
+                      {bridge.seismicHazard.vs30}
+                    </em>
+                  </strong>
+                  <p>
+                    {bridge.seismicHazard.locationName ??
+                      `${bridge.lat.toFixed(3)}, ${bridge.lng.toFixed(3)}`}
+                    {' · '}
+                    {bridge.seismicHazard.source === 'nshm-api'
+                      ? bridge.seismicHazard.model
+                      : 'regional estimate (API unavailable)'}
+                  </p>
+                  <div className="nshm-hazard-actions">
+                    <a
+                      className="page-btn primary"
+                      href={bridge.seismicHazard.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Hazard Maps
+                    </a>
+                    <a
+                      className="page-btn"
+                      href={bridge.seismicHazard.curvesUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Site curves
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <p className="nshm-hazard-pending">Assessing NSHM seismic hazard…</p>
+              )}
             </ResizablePanel>
 
             <ResizablePanel
