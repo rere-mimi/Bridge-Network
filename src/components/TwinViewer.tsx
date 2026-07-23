@@ -244,6 +244,8 @@ type TwinViewerProps = {
   onDrawnDefectsChange: (defects: DrawnDefect[]) => void
   isolate: boolean
   onIsolateChange: (value: boolean) => void
+  fullscreen?: boolean
+  onFullscreenChange?: (value: boolean) => void
 }
 
 export function TwinViewer({
@@ -257,6 +259,8 @@ export function TwinViewer({
   onDrawnDefectsChange,
   isolate,
   onIsolateChange,
+  fullscreen = false,
+  onFullscreenChange,
 }: TwinViewerProps) {
   const [showScale, setShowScale] = useState(true)
   const [defectTool, setDefectTool] = useState<DrawnDefectKind | null>(null)
@@ -314,7 +318,7 @@ export function TwinViewer({
   }
 
   return (
-    <section className="twin-viewer">
+    <section className={`twin-viewer ${fullscreen ? 'is-fullscreen' : ''}`}>
       <div className="viewer-tabs">
         {(
           [
@@ -339,6 +343,19 @@ export function TwinViewer({
             {label}
           </button>
         ))}
+        {onFullscreenChange && (
+          <button
+            type="button"
+            className={`viewer-fullscreen-btn ${fullscreen ? 'active' : ''}`}
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Open 3D model fullscreen'}
+            onClick={() => {
+              if (!fullscreen) onViewMode('3d')
+              onFullscreenChange(!fullscreen)
+            }}
+          >
+            {fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          </button>
+        )}
       </div>
 
       <div className="viewer-toolbar" role="toolbar" aria-label="Viewer tools">
@@ -368,6 +385,19 @@ export function TwinViewer({
         >
           Scale
         </button>
+        {onFullscreenChange && (
+          <button
+            type="button"
+            className={fullscreen ? 'active' : ''}
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen 3D model'}
+            onClick={() => {
+              if (!fullscreen) onViewMode('3d')
+              onFullscreenChange(!fullscreen)
+            }}
+          >
+            {fullscreen ? 'Exit FS' : 'Fullscreen'}
+          </button>
+        )}
         <span className="toolbar-sep" />
         <button
           type="button"

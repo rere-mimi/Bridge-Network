@@ -17,6 +17,7 @@ import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { InspectionActivityPicker } from './components/InspectionActivityPicker'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
+import { WidthResizableAside } from './components/WidthResizableAside'
 import { applyRecommendationsToStructure } from './data/recommendations'
 import { stampDefectConditionStates } from './data/conditionState'
 import { formatMoney } from './data/activityPricing'
@@ -74,16 +75,47 @@ export default function App() {
     [],
   )
   const [isolate, setIsolate] = useState(false)
+  const [viewerFullscreen, setViewerFullscreen] = useState(false)
+  const [detailsCollapsed, setDetailsCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('twin-details-collapsed') === '1'
+  })
+  const [leftCollapsed, setLeftCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('twin-left-collapsed') === '1'
+  })
   const [viewerHeight, setViewerHeight] = useState(() => {
-    if (typeof window === 'undefined') return 420
+    if (typeof window === 'undefined') return 560
     const saved = window.localStorage.getItem('twin-panel-h:viewer-stage')
-    return saved ? Number(saved) || 420 : 420
+    return saved ? Number(saved) || 560 : 560
   })
   const [selectedElement, setSelectedElement] = useState<{
     id: string
     label: string
     element: BridgeElement
   } | null>(null)
+
+  useEffect(() => {
+    window.localStorage.setItem('twin-details-collapsed', detailsCollapsed ? '1' : '0')
+  }, [detailsCollapsed])
+
+  useEffect(() => {
+    window.localStorage.setItem('twin-left-collapsed', leftCollapsed ? '1' : '0')
+  }, [leftCollapsed])
+
+  useEffect(() => {
+    if (!viewerFullscreen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setViewerFullscreen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [viewerFullscreen])
 
   const filtered = useMemo(() => {
     return structures.filter((b) => {
@@ -370,7 +402,29 @@ export default function App() {
           />
         ) : (
           <>
-        <aside className="left-panel">
+        <aside className={`left-panel ${leftCollapsed ? 'is-collapsed' : ''}`}>
+          {leftCollapsed ? (
+            <button
+              type="button"
+              className="left-panel-expand"
+              title="Show network panel"
+              onClick={() => setLeftCollapsed(false)}
+            >
+              »
+            </button>
+          ) : (
+            <>
+              <div className="left-panel-toolbar">
+                <span>Network</span>
+                <button
+                  type="button"
+                  className="page-btn ghost"
+                  title="Collapse network panel for a wider model"
+                  onClick={() => setLeftCollapsed(true)}
+                >
+                  Collapse
+                </button>
+              </div>
           <ResizablePanel
             title="Network map"
             badge={`${filtered.length} assets`}
@@ -503,9 +557,11 @@ export default function App() {
               ))}
             </ul>
           </ResizablePanel>
+            </>
+          )}
         </aside>
 
-        <main className="main-stage">
+        <main className={`main-stage ${leftCollapsed ? 'left-is-collapsed' : ''}`}>
           <section className="kpi-row">
             <article className="kpi wide">
               <p>Overall condition</p>
@@ -577,6 +633,16 @@ export default function App() {
                   <button type="button" className="page-btn" onClick={() => handleEdit(bridge.id)}>
                     Edit model
                   </button>
+                  <button
+                    type="button"
+                    className="page-btn"
+                    onClick={() => {
+                      setViewMode('3d')
+                      setViewerFullscreen(true)
+                    }}
+                  >
+                    Fullscreen 3D
+                  </button>
                   <span className={`status status-${bridge.status}`}>{bridge.status}</span>
                 </div>
               </div>
@@ -584,39 +650,66 @@ export default function App() {
               <ResizablePanel
                 className="viewer-panel"
                 storageKey="viewer-stage"
-                defaultHeight={460}
-                minHeight={280}
-                maxHeight={760}
+                defaultHeight={680}
+                minHeight={400}
+                maxHeight={typeof window !== 'undefined' ? Math.max(800, window.innerHeight - 80) : 960}
                 selected={selectedPanel === 'viewer'}
                 onSelect={() => setSelectedPanel('viewer')}
                 onHeightChange={setViewerHeight}
               >
-                <TwinViewer
-                  bridge={bridge}
-                  selectedElementId={selectedElement?.id ?? null}
-                  onSelectElement={(payload) => {
-                    setSelectedElement(payload)
-                    setSelectedPanel('element-details')
-                    setIsolate(false)
-                  }}
-                  viewMode={viewMode}
-                  onViewMode={setViewMode}
-                  height={Math.max(220, viewerHeight - 96)}
-                  drawnDefects={drawnDefects}
-                  onDrawnDefectsChange={setDrawnDefects}
-                  isolate={isolate}
-                  onIsolateChange={setIsolate}
-                />
+                {viewerFullscreen ? (
+                  <div className="viewer-fullscreen-placeholder">
+                    <p>3D model is open fullscreen</p>
+                    <button
+                      type="button"
+                      className="page-btn primary"
+                      onClick={() => setViewerFullscreen(false)}
+                    >
+                      Exit fullscreen
+                    </button>
+                  </div>
+                ) : (
+                  <TwinViewer
+                    bridge={bridge}
+                    selectedElementId={selectedElement?.id ?? null}
+                    onSelectElement={(payload) => {
+                      setSelectedElement(payload)
+                      setSelectedPanel('element-details')
+                      setIsolate(false)
+                      if (detailsCollapsed) setDetailsCollapsed(false)
+                    }}
+                    viewMode={viewMode}
+                    onViewMode={setViewMode}
+                    height={Math.max(320, viewerHeight - 96)}
+                    drawnDefects={drawnDefects}
+                    onDrawnDefectsChange={setDrawnDefects}
+                    isolate={isolate}
+                    onIsolateChange={setIsolate}
+                    fullscreen={false}
+                    onFullscreenChange={(value) => {
+                      if (value) setViewMode('3d')
+                      setViewerFullscreen(value)
+                    }}
+                  />
+                )}
               </ResizablePanel>
             </div>
 
-            <aside className="right-panel">
+            <WidthResizableAside
+              className="right-panel"
+              storageKey="details-aside"
+              defaultWidth={360}
+              minWidth={260}
+              maxWidth={640}
+              collapsed={detailsCollapsed}
+              onCollapsedChange={setDetailsCollapsed}
+            >
               <ResizablePanel
                 title="Latest inspection photo"
                 storageKey="photo"
-                defaultHeight={220}
-                minHeight={160}
-                maxHeight={420}
+                defaultHeight={200}
+                minHeight={140}
+                maxHeight={360}
                 selected={selectedPanel === 'photo'}
                 onSelect={() => setSelectedPanel('photo')}
               >
@@ -630,9 +723,9 @@ export default function App() {
               <ResizablePanel
                 title="Element details"
                 storageKey="element-details"
-                defaultHeight={360}
-                minHeight={220}
-                maxHeight={640}
+                defaultHeight={420}
+                minHeight={240}
+                maxHeight={720}
                 selected={selectedPanel === 'element-details'}
                 onSelect={() => setSelectedPanel('element-details')}
               >
@@ -808,7 +901,7 @@ export default function App() {
                   </div>
                 )}
               </ResizablePanel>
-            </aside>
+            </WidthResizableAside>
           </div>
 
           <section className="bottom-grid">
@@ -1026,6 +1119,48 @@ export default function App() {
           </>
         )}
       </div>
+
+      {viewerFullscreen && showOverview && (
+        <div className="viewer-fullscreen-overlay" role="dialog" aria-modal="true" aria-label="Fullscreen 3D model">
+          <div className="viewer-fullscreen-bar">
+            <div>
+              <strong>{bridge.name}</strong>
+              <span>
+                {bridge.road} · {bridge.region}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="page-btn primary"
+              onClick={() => setViewerFullscreen(false)}
+            >
+              Exit fullscreen
+            </button>
+          </div>
+          <div className="viewer-fullscreen-stage">
+            <TwinViewer
+              bridge={bridge}
+              selectedElementId={selectedElement?.id ?? null}
+              onSelectElement={(payload) => {
+                setSelectedElement(payload)
+                setIsolate(false)
+              }}
+              viewMode="3d"
+              onViewMode={(mode) => {
+                setViewMode(mode)
+                if (mode !== '3d') setViewerFullscreen(false)
+              }}
+              height={typeof window !== 'undefined' ? window.innerHeight - 100 : 800}
+              drawnDefects={drawnDefects}
+              onDrawnDefectsChange={setDrawnDefects}
+              isolate={isolate}
+              onIsolateChange={setIsolate}
+              fullscreen
+              onFullscreenChange={setViewerFullscreen}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
