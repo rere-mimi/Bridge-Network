@@ -28,7 +28,8 @@ import type {
 
 type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
 
-const SCENE_WATER_LEN = 9.5
+const SCENE_STREAM_LEN = 12
+const SCENE_RIVER_WIDTH = 8.2
 
 function PartGeometry({ part }: { part: ScenePart }) {
   if (part.shape === 'cylinder') {
@@ -193,19 +194,31 @@ function BridgeModel({
         <>
           {/* Ground / channel bed */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.42, 0]} receiveShadow>
-            <planeGeometry args={[22, 14]} />
+            <planeGeometry args={[22, 16]} />
             <meshStandardMaterial color={culvert ? '#3d4f3a' : '#1d4f63'} roughness={0.85} />
           </mesh>
           {!culvert && (
-            <mesh position={[0, -0.28, 0]} receiveShadow>
-              <boxGeometry args={[SCENE_WATER_LEN, 0.2, 6]} />
-              <meshStandardMaterial color="#0f3a4d" roughness={0.35} metalness={0.15} />
-            </mesh>
+            <>
+              {/* River flows along Z; bridge/roadway run along X (perpendicular to stream) */}
+              <mesh position={[0, -0.28, 0]} receiveShadow>
+                <boxGeometry args={[SCENE_RIVER_WIDTH, 0.2, SCENE_STREAM_LEN]} />
+                <meshStandardMaterial color="#0f3a4d" roughness={0.35} metalness={0.15} />
+              </mesh>
+              {/* Soft banks parallel to flow */}
+              <mesh position={[SCENE_RIVER_WIDTH / 2 + 0.55, -0.18, 0]} receiveShadow>
+                <boxGeometry args={[1.1, 0.35, SCENE_STREAM_LEN]} />
+                <meshStandardMaterial color="#2f4a3a" roughness={0.9} />
+              </mesh>
+              <mesh position={[-(SCENE_RIVER_WIDTH / 2 + 0.55), -0.18, 0]} receiveShadow>
+                <boxGeometry args={[1.1, 0.35, SCENE_STREAM_LEN]} />
+                <meshStandardMaterial color="#2f4a3a" roughness={0.9} />
+              </mesh>
+            </>
           )}
           {culvert && (
-            // Stream channel through opening axis
-            <mesh position={[0, -0.2, 0]} receiveShadow>
-              <boxGeometry args={[3.2, 0.15, 8]} />
+            // Stream channel through culvert barrel (Z), under roadway (X)
+            <mesh position={[0, -0.18, 0]} receiveShadow>
+              <boxGeometry args={[2.2, 0.16, SCENE_STREAM_LEN]} />
               <meshStandardMaterial color="#1e4658" roughness={0.4} />
             </mesh>
           )}

@@ -38,6 +38,14 @@ export type SceneNode = {
   kind: 'solid' | 'marker'
 }
 
+/**
+ * Scene axes (plan):
+ *   X = roadway / traffic direction
+ *   Z = stream / channel direction
+ *
+ * Bridge: deck & roadway along X (parallel to road), spanning across the stream (⊥ Z).
+ * Culvert: barrel along Z (perpendicular to road), stream flows through the barrel.
+ */
 const SCENE_LENGTH = 10
 const DECK_Y = 1.35
 
@@ -132,8 +140,9 @@ function barrierParts(
 
 /**
  * Build selectable 3D nodes with realistic composite geometry.
- * Culverts: barrel opening, optional wingwalls/gussets, fill, roadway, barriers.
- * Bridges: deck, girders, piers, abutments, approaches, roadway, barriers.
+ * Axes: X = roadway, Z = stream.
+ * Culverts: barrel ⊥ roadway (along Z), stream through opening.
+ * Bridges: deck ∥ roadway (along X), spanning ⊥ stream.
  */
 export function buildSceneNodes(bridge: BridgeAsset): SceneNode[] {
   if (isCulvert(bridge)) return buildCulvertNodes(bridge)
@@ -145,9 +154,11 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
   const roadW = roadWidthScene(deckWidthM)
   const roadHalf = roadW / 2
   const lengthM = Math.max(bridge.lengthM, 6)
-  const barrelLen = Math.min(4.8, 2.2 + lengthM / 20) // along road (X)
+  // Barrel / stream along Z (perpendicular to roadway on X)
+  const barrelLen = Math.max(roadW + 1.6, Math.min(5.4, 2.4 + lengthM / 18))
   const openingH = 1.05
-  const openingW = Math.min(2.4, roadW * 0.85) // transverse clear opening
+  // Clear opening width across the channel (along X, under the road)
+  const openingW = Math.min(2.6, Math.max(1.2, roadW * 0.7))
   const wall = 0.16
   const cover = 0.55 // fill over barrel
   const invertY = 0.08
@@ -167,35 +178,36 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
     const parts: ScenePart[] = []
 
     if (isPipe) {
-      const r = openingH * 0.48
+      const r = openingH * (barrelEl.scheduleNo === 602 ? 0.52 : 0.48)
+      // Cylinder default axis = Y; rotate onto Z so stream runs through the pipe
       parts.push({
         position: [0, invertY + r, 0],
-        size: [r, barrelLen, r],
+        size: [r * 2, barrelLen, r * 2],
         shape: 'cylinder',
         color,
-        rotation: [0, 0, Math.PI / 2],
+        rotation: [Math.PI / 2, 0, 0],
       })
     } else {
-      // Box culvert: invert, walls, roof — leaves a clear opening through ±Z
+      // Box / arch barrel: invert, side walls, roof — clear opening along ±Z (stream)
       parts.push(
         {
           position: [0, invertY + wall / 2, 0],
-          size: [barrelLen, wall, openingW + wall * 2],
+          size: [openingW + wall * 2, wall, barrelLen],
           color,
         },
         {
-          position: [0, invertY + wall + openingH / 2, openingW / 2 + wall / 2],
-          size: [barrelLen, openingH, wall],
+          position: [openingW / 2 + wall / 2, invertY + wall + openingH / 2, 0],
+          size: [wall, openingH, barrelLen],
           color,
         },
         {
-          position: [0, invertY + wall + openingH / 2, -(openingW / 2 + wall / 2)],
-          size: [barrelLen, openingH, wall],
+          position: [-(openingW / 2 + wall / 2), invertY + wall + openingH / 2, 0],
+          size: [wall, openingH, barrelLen],
           color,
         },
         {
           position: [0, roofY, 0],
-          size: [barrelLen, wall, openingW + wall * 2],
+          size: [openingW + wall * 2, wall, barrelLen],
           color,
         },
       )
@@ -227,7 +239,7 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
       parts: [
         {
           position: [0, 0, 0],
-          size: [barrelLen * 1.05, 0.08, openingW + wall],
+          size: [openingW + wall, 0.08, barrelLen * 1.05],
           color: '#64748b',
         },
       ],
@@ -235,7 +247,7 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
     })
   }
 
-  // Wingwalls / gussets at both ends of the opening
+  // Wingwalls / gussets at inlet & outlet (±Z), flaring along the stream banks
   for (const no of [605, 606, 609]) {
     const el = byNo(no)
     if (!el || !showGussets) continue
@@ -253,26 +265,26 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
       faces: ['front', 'side', 'top'],
       parts: [
         {
-          position: [-barrelLen / 2 - flare * 0.25, 0, openingW / 2 + wall],
-          size: [flare, openingH + 0.35, wall * 0.9],
+          position: [openingW / 2 + wall, 0, -barrelLen / 2 - flare * 0.25],
+          size: [wall * 0.9, openingH + 0.35, flare],
           color,
           rotation: [0, 0.35, 0],
         },
         {
-          position: [-barrelLen / 2 - flare * 0.25, 0, -(openingW / 2 + wall)],
-          size: [flare, openingH + 0.35, wall * 0.9],
+          position: [-(openingW / 2 + wall), 0, -barrelLen / 2 - flare * 0.25],
+          size: [wall * 0.9, openingH + 0.35, flare],
           color,
           rotation: [0, -0.35, 0],
         },
         {
-          position: [barrelLen / 2 + flare * 0.25, 0, openingW / 2 + wall],
-          size: [flare, openingH + 0.35, wall * 0.9],
+          position: [openingW / 2 + wall, 0, barrelLen / 2 + flare * 0.25],
+          size: [wall * 0.9, openingH + 0.35, flare],
           color,
           rotation: [0, -0.35, 0],
         },
         {
-          position: [barrelLen / 2 + flare * 0.25, 0, -(openingW / 2 + wall)],
-          size: [flare, openingH + 0.35, wall * 0.9],
+          position: [-(openingW / 2 + wall), 0, barrelLen / 2 + flare * 0.25],
+          size: [wall * 0.9, openingH + 0.35, flare],
           color,
           rotation: [0, 0.35, 0],
         },
@@ -280,6 +292,27 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
       kind: 'solid',
     })
   }
+
+  // Embankment fill under the roadway; slopes face the stream at ±Z
+  const fillParts: ScenePart[] = [
+    {
+      position: [0, 0, 0],
+      size: [SCENE_LENGTH + 1.5, cover, Math.max(roadW + 0.9, barrelLen * 0.55)],
+      color: '#5b6b4f',
+    },
+    {
+      position: [0, -cover * 0.12, barrelLen / 2 + 0.35],
+      size: [openingW + 2.4, cover * 0.75, 0.95],
+      color: '#4b5a42',
+      rotation: [0.4, 0, 0],
+    },
+    {
+      position: [0, -cover * 0.12, -(barrelLen / 2 + 0.35)],
+      size: [openingW + 2.4, cover * 0.75, 0.95],
+      color: '#4b5a42',
+      rotation: [-0.4, 0, 0],
+    },
+  ]
 
   const fillEl = byNo(501)
   if (fillEl) {
@@ -289,51 +322,24 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
       sizeM: { length: lengthM + 8, width: deckWidthM + 4, height: cover },
       color: '#5b6b4f',
       faces: ['top', 'front', 'side'],
-      parts: [
-        {
-          position: [0, 0, 0],
-          size: [barrelLen + 3.2, cover, roadW + 1.8],
-          color: '#5b6b4f',
-        },
-        {
-          position: [0, -cover * 0.15, roadHalf + 0.7],
-          size: [barrelLen + 3.2, cover * 0.7, 0.9],
-          color: '#4b5a42',
-          rotation: [0.35, 0, 0],
-        },
-        {
-          position: [0, -cover * 0.15, -(roadHalf + 0.7)],
-          size: [barrelLen + 3.2, cover * 0.7, 0.9],
-          color: '#4b5a42',
-          rotation: [-0.35, 0, 0],
-        },
-      ],
+      parts: fillParts,
       kind: 'solid',
     })
   } else if (barrelEl) {
-    // Bake embankment fill into barrel visuals when no dedicated fill element
     const barrelNode = nodes.find((n) => n.element.id === barrelEl.id)
     barrelNode?.parts.push(
-      {
-        position: [0, roofY + cover / 2, 0],
-        size: [barrelLen + 3.0, cover, roadW + 1.6],
-        color: '#5b6b4f',
-      },
-      {
-        position: [0, roofY + cover * 0.35, roadHalf + 0.65],
-        size: [barrelLen + 3.0, cover * 0.65, 0.85],
-        color: '#4b5a42',
-        rotation: [0.35, 0, 0],
-      },
-      {
-        position: [0, roofY + cover * 0.35, -(roadHalf + 0.65)],
-        size: [barrelLen + 3.0, cover * 0.65, 0.85],
-        color: '#4b5a42',
-        rotation: [-0.35, 0, 0],
-      },
+      ...fillParts.map((p) => ({
+        ...p,
+        position: [p.position[0], roofY + cover / 2 + p.position[1], p.position[2]] as [
+          number,
+          number,
+          number,
+        ],
+      })),
     )
   }
 
+  // Roadway along X (traffic), crossing over the culvert
   const roadEl = byNo(1)
   if (roadEl) {
     const color = BAND_COLOR[roadEl.band]
@@ -349,7 +355,6 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
           size: [SCENE_LENGTH + 2.5, 0.08, roadW],
           color: '#3f4651',
         },
-        // centreline
         {
           position: [0, 0.045, 0],
           size: [SCENE_LENGTH + 2.5, 0.01, 0.05],
@@ -373,7 +378,6 @@ function buildCulvertNodes(bridge: BridgeAsset): SceneNode[] {
     })
   }
 
-  // Remaining culvert elements as discreet markers near structure
   for (const el of bridge.elements) {
     if (nodes.some((n) => n.element.id === el.id)) continue
     if ([500, 502, 505, 607, 610].includes(el.scheduleNo)) {
