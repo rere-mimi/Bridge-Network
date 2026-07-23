@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { ContactShadows, Html, OrbitControls } from '@react-three/drei'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, type ComponentProps, type ReactNode } from 'react'
+import type { Mesh } from 'three'
 import type { BridgeAsset, BridgeElement, ConditionBand } from '../types'
 
 const BAND_COLOR: Record<ConditionBand, string> = {
@@ -11,8 +12,11 @@ const BAND_COLOR: Record<ConditionBand, string> = {
   critical: '#ef4444',
 }
 
+type PartId = 'pier' | 'girder' | 'deck' | 'bearing'
+
 type Hotspot = {
   id: string
+  part: PartId
   label: string
   position: [number, number, number]
   element: BridgeElement
@@ -21,7 +25,9 @@ type Hotspot = {
 
 function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   const pier = bridge.elements.find((e) => e.code === 'PIE' || e.code === 'SUP')
-  const girder = bridge.elements.find((e) => e.code === 'GIR' || e.code === 'SUP' || e.code === 'DEC')
+  const girder = bridge.elements.find(
+    (e) => e.code === 'GIR' || e.code === 'SUP' || e.code === 'DEC',
+  )
   const bearing = bridge.elements.find((e) => e.code === 'BEA')
   const deck = bridge.elements.find((e) => e.code === 'DEC')
 
@@ -29,6 +35,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   if (pier) {
     spots.push({
       id: 'pier-2',
+      part: 'pier',
       label: 'Pier 2',
       position: [-1.2, 0.55, 0.15],
       element: pier,
@@ -38,6 +45,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   if (girder) {
     spots.push({
       id: 'girder-g4',
+      part: 'girder',
       label: girder.code === 'GIR' ? 'Girder G4' : girder.name,
       position: [0.4, 1.35, 0.35],
       element: girder,
@@ -47,6 +55,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   if (deck) {
     spots.push({
       id: 'deck',
+      part: 'deck',
       label: 'Deck panel',
       position: [1.6, 1.55, 0],
       element: deck,
@@ -56,6 +65,7 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
   if (bearing) {
     spots.push({
       id: 'bearing',
+      part: 'bearing',
       label: 'Bearing line',
       position: [-2.4, 1.05, 0.2],
       element: bearing,
@@ -63,6 +73,45 @@ function buildHotspots(bridge: BridgeAsset): Hotspot[] {
     })
   }
   return spots
+}
+
+function HighlightableMesh({
+  selected,
+  color,
+  emissive = '#7dd3fc',
+  children,
+  onSelect,
+  ...props
+}: {
+  selected: boolean
+  color: string
+  emissive?: string
+  children: ReactNode
+  onSelect?: () => void
+} & ComponentProps<'mesh'>) {
+  const ref = useRef<Mesh>(null)
+
+  return (
+    <mesh
+      ref={ref}
+      castShadow
+      receiveShadow
+      onClick={(e) => {
+        e.stopPropagation()
+        onSelect?.()
+      }}
+      {...props}
+    >
+      {children}
+      <meshStandardMaterial
+        color={selected ? '#dbeafe' : color}
+        emissive={selected ? emissive : '#000000'}
+        emissiveIntensity={selected ? 0.85 : 0}
+        roughness={selected ? 0.35 : 0.7}
+        metalness={selected ? 0.25 : 0.1}
+      />
+    </mesh>
+  )
 }
 
 function BridgeModel({
@@ -76,16 +125,21 @@ function BridgeModel({
 }) {
   const hotspots = useMemo(() => buildHotspots(bridge), [bridge])
   const spanCount = Math.min(Math.max(bridge.spans, 3), 6)
+  const selected = hotspots.find((h) => h.id === selectedId) ?? null
+  const selectedPart = selected?.part ?? null
+
+  const selectPart = (part: PartId) => {
+    const spot = hotspots.find((h) => h.part === part)
+    if (spot) onSelect(spot)
+  }
 
   return (
     <group>
-      {/* water */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.35, 0]} receiveShadow>
         <planeGeometry args={[18, 10]} />
         <meshStandardMaterial color="#1d4f63" roughness={0.35} metalness={0.2} />
       </mesh>
 
-      {/* banks */}
       <mesh position={[-6.2, 0.05, 0]} castShadow>
         <boxGeometry args={[3.5, 0.8, 8]} />
         <meshStandardMaterial color="#3f4f46" />
@@ -95,38 +149,76 @@ function BridgeModel({
         <meshStandardMaterial color="#3f4f46" />
       </mesh>
 
-      {/* piers */}
       {Array.from({ length: spanCount - 1 }).map((_, i) => {
         const x = -3.5 + (i + 1) * (7 / spanCount)
+        const isTargetPier = i === 1
+        const lit = selectedPart === 'pier' && isTargetPier
         return (
           <group key={`pier-${i}`} position={[x, 0, 0]}>
-            <mesh position={[0, 0.35, 0]} castShadow>
+            <HighlightableMesh
+              selected={lit}
+              color="#9aa3a7"
+              position={[0, 0.35, 0]}
+              onSelect={() => selectPart('pier')}
+            >
               <boxGeometry args={[0.35, 1.1, 1.4]} />
-              <meshStandardMaterial color="#9aa3a7" />
-            </mesh>
-            <mesh position={[0, 0.95, 0]} castShadow>
+            </HighlightableMesh>
+            <HighlightableMesh
+              selected={lit}
+              color="#b0b8bc"
+              position={[0, 0.95, 0]}
+              onSelect={() => selectPart('pier')}
+            >
               <boxGeometry args={[0.7, 0.18, 1.7]} />
-              <meshStandardMaterial color="#b0b8bc" />
-            </mesh>
+            </HighlightableMesh>
+            {lit && (
+              <pointLight
+                position={[0, 1.4, 0.8]}
+                intensity={2.4}
+                distance={4}
+                color="#7dd3fc"
+              />
+            )}
           </group>
         )
       })}
 
-      {/* deck */}
-      <mesh position={[0, 1.25, 0]} castShadow receiveShadow>
+      <HighlightableMesh
+        selected={selectedPart === 'deck'}
+        color="#6b7280"
+        position={[0, 1.25, 0]}
+        onSelect={() => selectPart('deck')}
+      >
         <boxGeometry args={[9.2, 0.22, 2.2]} />
-        <meshStandardMaterial color="#6b7280" roughness={0.85} />
-      </mesh>
+      </HighlightableMesh>
+      {selectedPart === 'deck' && (
+        <pointLight position={[1.5, 2.2, 0]} intensity={2.2} distance={5} color="#93c5fd" />
+      )}
 
-      {/* girders */}
-      {[-0.7, -0.25, 0.25, 0.7].map((z, i) => (
-        <mesh key={`girder-${i}`} position={[0, 1.05, z]} castShadow>
-          <boxGeometry args={[8.8, 0.28, 0.18]} />
-          <meshStandardMaterial color="#4b5563" metalness={0.3} roughness={0.5} />
-        </mesh>
-      ))}
+      {[-0.7, -0.25, 0.25, 0.7].map((z, i) => {
+        const lit = selectedPart === 'girder' && i === 2
+        return (
+          <group key={`girder-${i}`}>
+            <HighlightableMesh
+              selected={lit}
+              color="#4b5563"
+              position={[0, 1.05, z]}
+              onSelect={() => selectPart('girder')}
+            >
+              <boxGeometry args={[8.8, 0.28, 0.18]} />
+            </HighlightableMesh>
+            {lit && (
+              <pointLight
+                position={[0.4, 1.6, z]}
+                intensity={2.6}
+                distance={4.5}
+                color="#fde68a"
+              />
+            )}
+          </group>
+        )
+      })}
 
-      {/* barriers */}
       <mesh position={[0, 1.55, 1.05]}>
         <boxGeometry args={[9.2, 0.28, 0.08]} />
         <meshStandardMaterial color="#d1d5db" />
@@ -136,11 +228,29 @@ function BridgeModel({
         <meshStandardMaterial color="#d1d5db" />
       </mesh>
 
-      {/* road markings */}
       <mesh position={[0, 1.37, 0]}>
         <boxGeometry args={[8.6, 0.01, 0.06]} />
         <meshStandardMaterial color="#f8fafc" emissive="#94a3b8" emissiveIntensity={0.2} />
       </mesh>
+
+      {/* bearing pads near left abutment */}
+      {[-0.6, 0, 0.6].map((z, i) => {
+        const lit = selectedPart === 'bearing'
+        return (
+          <HighlightableMesh
+            key={`bearing-${i}`}
+            selected={lit}
+            color="#78716c"
+            position={[-4.2, 1.05, z]}
+            onSelect={() => selectPart('bearing')}
+          >
+            <boxGeometry args={[0.35, 0.16, 0.28]} />
+          </HighlightableMesh>
+        )
+      })}
+      {selectedPart === 'bearing' && (
+        <pointLight position={[-4.1, 1.5, 0]} intensity={2.1} distance={3.5} color="#fdba74" />
+      )}
 
       {hotspots.map((spot) => {
         const active = selectedId === spot.id
@@ -153,14 +263,24 @@ function BridgeModel({
                 onSelect(spot)
               }}
             >
-              <sphereGeometry args={[active ? 0.14 : 0.11, 24, 24]} />
+              <sphereGeometry args={[active ? 0.15 : 0.11, 24, 24]} />
               <meshStandardMaterial
-                color={color}
-                emissive={color}
-                emissiveIntensity={active ? 0.8 : 0.45}
+                color={active ? '#f8fafc' : color}
+                emissive={active ? '#7dd3fc' : color}
+                emissiveIntensity={active ? 1.4 : 0.45}
+                toneMapped={false}
               />
             </mesh>
-            <Html distanceFactor={8} position={[0, 0.35, 0]} center>
+            {active && (
+              <>
+                <mesh>
+                  <ringGeometry args={[0.18, 0.26, 32]} />
+                  <meshBasicMaterial color="#7dd3fc" transparent opacity={0.85} />
+                </mesh>
+                <pointLight intensity={1.8} distance={3} color="#e0f2fe" />
+              </>
+            )}
+            <Html distanceFactor={8} position={[0, 0.38, 0]} center>
               <button
                 type="button"
                 className={active ? 'hotspot-label active' : 'hotspot-label'}
@@ -189,6 +309,7 @@ type TwinViewerProps = {
   }) => void
   viewMode: '3d' | 'map' | 'drawings'
   onViewMode: (mode: '3d' | 'map' | 'drawings') => void
+  height?: number
 }
 
 export function TwinViewer({
@@ -197,9 +318,8 @@ export function TwinViewer({
   onSelectElement,
   viewMode,
   onViewMode,
+  height,
 }: TwinViewerProps) {
-  const [hoverHint] = useState('Orbit · click pins for element detail')
-
   return (
     <section className="twin-viewer">
       <div className="viewer-tabs">
@@ -221,7 +341,7 @@ export function TwinViewer({
         ))}
       </div>
 
-      <div className="viewer-stage">
+      <div className="viewer-stage" style={height ? { height, minHeight: height } : undefined}>
         {viewMode === '3d' && (
           <>
             <Canvas camera={{ position: [5.5, 3.2, 6.5], fov: 42 }} shadows>
@@ -266,7 +386,7 @@ export function TwinViewer({
                 </div>
               ))}
             </div>
-            <p className="viewer-hint">{hoverHint}</p>
+            <p className="viewer-hint">Orbit · click an element for light highlight</p>
           </>
         )}
 

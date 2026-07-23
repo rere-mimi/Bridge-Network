@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { BRIDGES, conditionLabel } from './data/bridges'
 import { MiniMap } from './components/MiniMap'
+import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
 import type { BridgeElement, Filters, PlatformModule, SidebarId } from './types'
 import './App.css'
@@ -38,6 +39,12 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(BRIDGES[0].id)
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [viewMode, setViewMode] = useState<'3d' | 'map' | 'drawings'>('3d')
+  const [selectedPanel, setSelectedPanel] = useState<string | null>('viewer')
+  const [viewerHeight, setViewerHeight] = useState(() => {
+    if (typeof window === 'undefined') return 420
+    const saved = window.localStorage.getItem('twin-panel-h:viewer-stage')
+    return saved ? Number(saved) || 420 : 420
+  })
   const [selectedElement, setSelectedElement] = useState<{
     id: string
     label: string
@@ -130,11 +137,16 @@ export default function App() {
         </aside>
 
         <aside className="left-panel">
-          <section className="panel-block">
-            <header>
-              <h2>Network map</h2>
-              <span>{filtered.length} assets</span>
-            </header>
+          <ResizablePanel
+            title="Network map"
+            badge={`${filtered.length} assets`}
+            storageKey="network-map"
+            defaultHeight={210}
+            minHeight={160}
+            maxHeight={420}
+            selected={selectedPanel === 'network-map'}
+            onSelect={() => setSelectedPanel('network-map')}
+          >
             <MiniMap
               bridges={filtered}
               selectedId={bridge.id}
@@ -143,13 +155,18 @@ export default function App() {
                 setSelectedElement(null)
               }}
             />
-          </section>
+          </ResizablePanel>
 
-          <section className="panel-block filters">
-            <header>
-              <h2>Asset filters</h2>
-            </header>
-
+          <ResizablePanel
+            title="Asset filters"
+            className="filters"
+            storageKey="filters"
+            defaultHeight={320}
+            minHeight={220}
+            maxHeight={520}
+            selected={selectedPanel === 'filters'}
+            onSelect={() => setSelectedPanel('filters')}
+          >
             <label>
               Region
               <select
@@ -218,12 +235,18 @@ export default function App() {
             >
               Reset filters
             </button>
-          </section>
+          </ResizablePanel>
 
-          <section className="panel-block asset-list">
-            <header>
-              <h2>Structures</h2>
-            </header>
+          <ResizablePanel
+            title="Structures"
+            className="asset-list"
+            storageKey="structures"
+            defaultHeight={240}
+            minHeight={140}
+            maxHeight={480}
+            selected={selectedPanel === 'structures'}
+            onSelect={() => setSelectedPanel('structures')}
+          >
             <ul>
               {filtered.map((item) => (
                 <li key={item.id}>
@@ -243,7 +266,7 @@ export default function App() {
                 </li>
               ))}
             </ul>
-          </section>
+          </ResizablePanel>
         </aside>
 
         <main className="main-stage">
@@ -314,31 +337,56 @@ export default function App() {
                 <span className={`status status-${bridge.status}`}>{bridge.status}</span>
               </div>
 
-              <TwinViewer
-                bridge={bridge}
-                selectedElementId={selectedElement?.id ?? null}
-                onSelectElement={setSelectedElement}
-                viewMode={viewMode}
-                onViewMode={setViewMode}
-              />
+              <ResizablePanel
+                className="viewer-panel"
+                storageKey="viewer-stage"
+                defaultHeight={460}
+                minHeight={280}
+                maxHeight={760}
+                selected={selectedPanel === 'viewer'}
+                onSelect={() => setSelectedPanel('viewer')}
+                onHeightChange={setViewerHeight}
+              >
+                <TwinViewer
+                  bridge={bridge}
+                  selectedElementId={selectedElement?.id ?? null}
+                  onSelectElement={(payload) => {
+                    setSelectedElement(payload)
+                    setSelectedPanel('element-details')
+                  }}
+                  viewMode={viewMode}
+                  onViewMode={setViewMode}
+                  height={Math.max(220, viewerHeight - 52)}
+                />
+              </ResizablePanel>
             </div>
 
             <aside className="right-panel">
-              <section className="panel-block">
-                <header>
-                  <h2>Latest inspection photo</h2>
-                </header>
+              <ResizablePanel
+                title="Latest inspection photo"
+                storageKey="photo"
+                defaultHeight={220}
+                minHeight={160}
+                maxHeight={420}
+                selected={selectedPanel === 'photo'}
+                onSelect={() => setSelectedPanel('photo')}
+              >
                 <div className="photo-card">
                   <div className="photo-art" aria-hidden="true" />
                   <p>{bridge.photoLabel}</p>
                   <span>{bridge.lastInspection}</span>
                 </div>
-              </section>
+              </ResizablePanel>
 
-              <section className="panel-block">
-                <header>
-                  <h2>Element details</h2>
-                </header>
+              <ResizablePanel
+                title="Element details"
+                storageKey="element-details"
+                defaultHeight={360}
+                minHeight={220}
+                maxHeight={640}
+                selected={selectedPanel === 'element-details'}
+                onSelect={() => setSelectedPanel('element-details')}
+              >
                 {activeElement && (
                   <div className="element-detail">
                     <h3>{activeElement.label}</h3>
@@ -368,7 +416,9 @@ export default function App() {
                           </div>
                         </li>
                       ))}
-                      {bridge.defects.length === 0 && <li className="empty">No open defects</li>}
+                      {bridge.defects.length === 0 && (
+                        <li className="empty">No open defects</li>
+                      )}
                     </ul>
                     <p className="section-label">Documents & records</p>
                     <div className="doc-row">
@@ -378,15 +428,20 @@ export default function App() {
                     </div>
                   </div>
                 )}
-              </section>
+              </ResizablePanel>
             </aside>
           </div>
 
           <section className="bottom-grid">
-            <article className="panel-block">
-              <header>
-                <h2>Condition heat map</h2>
-              </header>
+            <ResizablePanel
+              title="Condition heat map"
+              storageKey="heatmap"
+              defaultHeight={200}
+              minHeight={140}
+              maxHeight={420}
+              selected={selectedPanel === 'heatmap'}
+              onSelect={() => setSelectedPanel('heatmap')}
+            >
               <div className="heat-table">
                 {bridge.heatmap.map((row) => (
                   <div key={row.element} className="heat-row">
@@ -399,12 +454,17 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            </article>
+            </ResizablePanel>
 
-            <article className="panel-block">
-              <header>
-                <h2>Risk dashboard</h2>
-              </header>
+            <ResizablePanel
+              title="Risk dashboard"
+              storageKey="risk"
+              defaultHeight={220}
+              minHeight={160}
+              maxHeight={420}
+              selected={selectedPanel === 'risk'}
+              onSelect={() => setSelectedPanel('risk')}
+            >
               <div className="risk-donut-wrap">
                 <div
                   className="risk-donut"
@@ -430,21 +490,35 @@ export default function App() {
                   <li>Traffic {bridge.riskBreakdown.traffic}%</li>
                 </ul>
               </div>
-            </article>
+            </ResizablePanel>
 
-            <article className="panel-block">
-              <header>
-                <h2>Maintenance forecast</h2>
-              </header>
+            <ResizablePanel
+              title="Maintenance forecast"
+              storageKey="forecast"
+              defaultHeight={230}
+              minHeight={170}
+              maxHeight={420}
+              selected={selectedPanel === 'forecast'}
+              onSelect={() => setSelectedPanel('forecast')}
+            >
               <div className="forecast-chart">
                 {bridge.maintenanceForecast.map((row) => {
                   const max = Math.max(row.routine, row.rehab, row.replace, 0.1)
                   return (
                     <div key={row.year} className="forecast-col">
                       <div className="bars">
-                        <i style={{ height: `${(row.routine / max) * 100}%` }} className="routine" />
-                        <i style={{ height: `${(row.rehab / max) * 100}%` }} className="rehab" />
-                        <i style={{ height: `${(row.replace / max) * 100}%` }} className="replace" />
+                        <i
+                          style={{ height: `${(row.routine / max) * 100}%` }}
+                          className="routine"
+                        />
+                        <i
+                          style={{ height: `${(row.rehab / max) * 100}%` }}
+                          className="rehab"
+                        />
+                        <i
+                          style={{ height: `${(row.replace / max) * 100}%` }}
+                          className="replace"
+                        />
                       </div>
                       <span>{row.year}</span>
                     </div>
@@ -456,12 +530,17 @@ export default function App() {
                 <span>Rehab</span>
                 <span>Replace</span>
               </div>
-            </article>
+            </ResizablePanel>
 
-            <article className="panel-block">
-              <header>
-                <h2>Inspection history</h2>
-              </header>
+            <ResizablePanel
+              title="Inspection history"
+              storageKey="history"
+              defaultHeight={220}
+              minHeight={150}
+              maxHeight={420}
+              selected={selectedPanel === 'history'}
+              onSelect={() => setSelectedPanel('history')}
+            >
               <ul className="history-list">
                 {bridge.inspections.map((item) => (
                   <li key={item.id}>
@@ -471,14 +550,21 @@ export default function App() {
                   </li>
                 ))}
               </ul>
-            </article>
+            </ResizablePanel>
 
-            <article className="panel-block">
-              <header>
-                <h2>Recent defects</h2>
-              </header>
+            <ResizablePanel
+              title="Recent defects"
+              storageKey="defects"
+              defaultHeight={220}
+              minHeight={150}
+              maxHeight={420}
+              selected={selectedPanel === 'defects'}
+              onSelect={() => setSelectedPanel('defects')}
+            >
               <ul className="history-list">
-                {bridge.defects.length === 0 && <li className="empty">No recent defects</li>}
+                {bridge.defects.length === 0 && (
+                  <li className="empty">No recent defects</li>
+                )}
                 {bridge.defects.map((defect) => (
                   <li key={defect.id}>
                     <strong>{defect.title}</strong>
@@ -489,12 +575,17 @@ export default function App() {
                   </li>
                 ))}
               </ul>
-            </article>
+            </ResizablePanel>
 
-            <article className="panel-block">
-              <header>
-                <h2>Location & context</h2>
-              </header>
+            <ResizablePanel
+              title="Location & context"
+              storageKey="location"
+              defaultHeight={240}
+              minHeight={180}
+              maxHeight={460}
+              selected={selectedPanel === 'location'}
+              onSelect={() => setSelectedPanel('location')}
+            >
               <MiniMap
                 bridges={[bridge]}
                 selectedId={bridge.id}
@@ -509,7 +600,7 @@ export default function App() {
                   {bridge.road} · {bridge.city}
                 </span>
               </div>
-            </article>
+            </ResizablePanel>
           </section>
 
           {module !== 'overview' && (
