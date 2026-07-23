@@ -10,7 +10,16 @@ Interactive live operations dashboard for monitoring Bridge Network nodes across
 - Streaming activity feed with node focus
 - Selected-node detail panel with live stats
 
-## Quick start
+## Run on GitHub (no install needed)
+
+After this is merged to `main` and Pages is enabled:
+
+1. Open the repo on GitHub → **Settings** → **Pages**
+2. Under **Build and deployment** → **Source**, choose **GitHub Actions**
+3. Wait for the **Deploy to GitHub Pages** workflow to finish (Actions tab)
+4. Open: **https://rere-mimi.github.io/Bridge-Network/**
+
+## Quick start (local)
 
 ```bash
 npm install
