@@ -360,3 +360,28 @@ export type Filters = {
   condition: string
   risk: string
 }
+
+/** PM-created work package of structures that must be inspected. */
+export type InspectionMandateStatus = 'draft' | 'active' | 'completed' | 'archived'
+
+export type InspectionMandateItem = {
+  structureId: string
+  /** Visit order for on-site navigation (1-based). */
+  order: number
+  addedAt: string
+  notes?: string
+  /** Set when the inspector marks the structure visited. */
+  visitedAt?: string | null
+}
+
+export type InspectionMandate = {
+  id: string
+  title: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  dueDate?: string
+  status: InspectionMandateStatus
+  notes?: string
+  items: InspectionMandateItem[]
+}

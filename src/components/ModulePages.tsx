@@ -5,6 +5,7 @@ import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
 import { ModelCataloguePanel } from './ModelCataloguePanel'
 import { DatabaseInterrogationPanel } from './DatabaseInterrogationPanel'
+import { InspectionMandatePanel } from './InspectionMandatePanel'
 import { MaintenanceActivitiesPanel } from './MaintenanceActivitiesPanel'
 import { MaintenanceWorklist } from './MaintenanceWorklist'
 import { NzNetworkMap } from './NzNetworkMap'
@@ -216,11 +217,17 @@ export function ModulePages({
 
       {page === 'inspections' && (
         <PageShell
-          title="Inspections"
-          subtitle="Inspection history and due dates across the network."
+          title="Inspection mandates"
+          subtitle="PM builds the mandate by ID, CSV, or inventory select — inspectors use the field map to navigate structure to structure on site."
         >
-          <div className="page-grid-2">
-            <ResizablePanel title="Due schedule" storageKey="insp-due" defaultHeight={280}>
+          <InspectionMandatePanel
+            inventory={allBridges}
+            selectedStructureId={selectedId}
+            onSelectStructure={onSelectBridge}
+            onOpenTwin={onOpenOverview}
+          />
+          <div className="page-grid-2 mandate-schedule-grid">
+            <ResizablePanel title="Network due schedule" storageKey="insp-due" defaultHeight={240}>
               <ul className="page-list">
                 {bridges.map((item) => (
                   <li key={item.id}>
@@ -233,7 +240,7 @@ export function ModulePages({
                 ))}
               </ul>
             </ResizablePanel>
-            <ResizablePanel title={`${bridge.name} history`} storageKey="insp-hist" defaultHeight={280}>
+            <ResizablePanel title={`${bridge.name} history`} storageKey="insp-hist" defaultHeight={240}>
               <ul className="page-list">
                 {bridge.inspections.map((ins) => (
                   <li key={ins.id}>
