@@ -185,7 +185,10 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
 
       let quantity = defaultQuantity(el.unit, group, spanLength, deckWidthM)
       if (el.no === 201 || el.no === 202) quantity = Math.max(1, girderCountPerSpan)
-      if (el.no === 302) quantity = Math.max(1, girderCountPerSpan || columnsPerPier)
+      if (el.no === 302) {
+        const beams = Math.max(1, girderCountPerSpan || columnsPerPier)
+        quantity = group === 'pier' ? beams * 2 : beams
+      }
       if (el.no === 2 || el.no === 3) quantity = Math.round(spanLength * 2)
       if (el.no === 404 || el.no === 405) {
         quantity = group === 'pier' ? columnsPerPier : columnsPerAbutment
@@ -238,16 +241,19 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
         continue
       }
 
-      // I / box: one elastomeric bearing per beam at each support
+      // I / box simply-supported bearings:
+      // abutment → one per beam; pier → two per beam line (one for each adjacent span end)
       if (
         el.no === 302 &&
         (group === 'pier' || group === 'abutment') &&
         girderCountPerSpan > 0 &&
         (beamIsOpen || beamIsBox)
       ) {
-        const count = beamIsBox
+        const beamsPer = beamIsBox
           ? Math.max(1, Math.min(girderCountPerSpan, 3))
           : girderCountPerSpan
+        // Intermediate pier seats both span ends → 2× beams (e.g. 4 beams → 8 bearings)
+        const count = group === 'pier' ? beamsPer * 2 : beamsPer
         const pierCapLen = geometry.elementSizes?.[402]?.length ?? 1.4
         const flangeW =
           beamIsBox
@@ -259,6 +265,13 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
           height: 0.05,
         }
         for (let g = 1; g <= count; g++) {
+          const beamLine = ((g - 1) % beamsPer) + 1
+          const spanTag =
+            group === 'pier'
+              ? g <= beamsPer
+                ? `S${index}`
+                : `S${index + 1}`
+              : groupId
           const id = formatElementId(bridgeId, groupId, el.no, g)
           const conditionScore = hashScore(id, conditionBase - 1)
           const riskScore = hashScore(`${id}-r`, riskBase + 3)
@@ -267,7 +280,7 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
             bridgeId,
             code,
             scheduleNo: el.no,
-            name: `${el.name} ${g}`,
+            name: `${el.name} ${beamLine} (${spanTag})`,
             category: el.category,
             majorGroup,
             subgroup,
