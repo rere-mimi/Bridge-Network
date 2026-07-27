@@ -4,6 +4,7 @@
  */
 
 import type { ArchSpandrelType } from './archBridgeComponents'
+import { bridgeSceneLength } from './sceneMetrics'
 
 export type BeamSectionType = 'open-ibeam' | 't-beam' | 'box' | 'slab'
 export type PierType = 'wall' | 'multi-column' | 'trestle' | 'pile-bent'
@@ -191,10 +192,9 @@ export function sizeForSchedule(
   return geometry?.elementSizes?.[scheduleNo] ?? {}
 }
 
-/** Scene metres from real metres using overall structure length as scale reference. */
-export function sceneScaleFromLength(lengthM: number): number {
-  const SCENE_LENGTH = 10
-  return SCENE_LENGTH / Math.max(lengthM, 1)
+/** Scene metres from real metres using span-pitch layout as scale reference. */
+export function sceneScaleFromLength(lengthM: number, spans = 1): number {
+  return bridgeSceneLength(spans) / Math.max(lengthM, 1)
 }
 
 export function beamTypeLabel(type: BeamSectionType): string {

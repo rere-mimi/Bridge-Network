@@ -1,5 +1,13 @@
 import type { BridgeAsset, BridgeElement, ConditionBand, ElementSizeM } from '../types'
 import { isStructural3dSchedule } from './modelCatalogue'
+import {
+  abutmentX,
+  alongSpanSize,
+  bridgeSceneLength,
+  pierX,
+  spanCentreX,
+  spanSceneLength,
+} from './sceneMetrics'
 import { sizeForSchedule } from './structureGeometry'
 
 export type SceneColorMode = 'material' | 'condition' | 'severity'
@@ -66,8 +74,10 @@ export type SceneNode = {
  *
  * Bridge: deck & roadway along X (parallel to road), spanning across the stream (⊥ Z).
  * Culvert: barrel along Z (perpendicular to road), stream flows through the barrel.
+ *
+ * Longitudinal spacing uses sceneMetrics (min span pitch) so short multi-span
+ * bridges like Rakaia (~12 m spans) keep a clear gap between piers.
  */
-const SCENE_LENGTH = 10
 const DECK_Y = 1.35
 
 function parseIndex(groupId: string): number {
@@ -98,7 +108,9 @@ function toSceneSizeM(size: ElementSizeM, fallback: SceneSizeM): SceneSizeM {
 
 /** Map a real metre value onto scene units using structure length. */
 function mToScene(bridge: BridgeAsset, metres: number, axis: 'x' | 'y' | 'z' = 'x'): number {
-  if (axis === 'x') return (metres / Math.max(bridge.lengthM, 1)) * SCENE_LENGTH
+  if (axis === 'x') {
+    return (metres / Math.max(bridge.lengthM, 1)) * bridgeSceneLength(bridge.spans)
+  }
   // Vertical / transverse: keep roughly proportional to roadway width mapping
   const deck = bridge.deckWidthM ?? 12
   const roadW = roadWidthScene(deck)
@@ -109,21 +121,6 @@ function mToScene(bridge: BridgeAsset, metres: number, axis: 'x' | 'y' | 'z' = '
 function columnSpreadZ(count: number, roadHalf: number, index: number): number {
   if (count <= 1) return 0
   return -roadHalf * 0.72 + ((index - 1) / Math.max(count - 1, 1)) * roadHalf * 1.44
-}
-
-function spanCentreX(spanIndex: number, spans: number): number {
-  const spanLen = SCENE_LENGTH / Math.max(spans, 1)
-  return -SCENE_LENGTH / 2 + spanLen * (spanIndex - 0.5)
-}
-
-function pierX(pierIndex: number, spans: number): number {
-  const spanLen = SCENE_LENGTH / Math.max(spans, 1)
-  return -SCENE_LENGTH / 2 + spanLen * pierIndex
-}
-
-/** Keep support thickness from swallowing short spans (e.g. 12 m) in the 3D view. */
-function alongSpanSize(sizeScene: number, spanLenScene: number, maxFrac = 0.22): number {
-  return Math.min(Math.max(sizeScene, 0.12), spanLenScene * maxFrac)
 }
 
 function hasElement(bridge: BridgeAsset, scheduleNo: number) {
@@ -696,7 +693,7 @@ function buildTunnelNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
 
 function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
   const spans = Math.max(bridge.spans, 1)
-  const spanLenScene = SCENE_LENGTH / spans
+  const spanLenScene = spanSceneLength(spans)
   const spanLenM = bridge.lengthM / spans
   const deckWidthM = bridge.deckWidthM ?? 12
   const roadW = roadWidthScene(deckWidthM)
@@ -746,7 +743,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             parts: [
               {
                 position: [0, 0, 0],
-                size: [spanLenScene * 0.97, deckH, roadW + 0.15],
+                size: [spanLenScene * 0.9, deckH, roadW + 0.15],
                 color,
               },
             ],
@@ -1095,9 +1092,10 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             height: size.height ?? 4.5,
           })
           const colH = Math.max(0.7, mToScene(bridge, sizeM.height, 'y'))
-          const dia = Math.max(
+          const dia = alongSpanSize(
+            Math.max(0.14, mToScene(bridge, size.diameter ?? sizeM.width, 'z')),
+            spanLenScene,
             0.18,
-            mToScene(bridge, size.diameter ?? sizeM.width, 'z'),
           )
           const isTrestle = el.scheduleNo === 405
           node = {
@@ -1110,7 +1108,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
               ? [
                   {
                     position: [0, 0, 0],
-                    size: [dia * 1.2, colH, dia * 1.2],
+                    size: [dia * 1.15, colH, dia * 1.15],
                     color,
                   },
                 ]
@@ -1136,7 +1134,11 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             parts: [
               {
                 position: [0, 0, 0],
-                size: [1.1, 0.22, roadW + 0.5],
+                size: [
+                  alongSpanSize(Math.max(0.35, mToScene(bridge, 2.5)), spanLenScene, 0.35),
+                  0.22,
+                  roadW + 0.5,
+                ],
                 color,
               },
             ],
@@ -1153,7 +1155,11 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             faces: ['top', 'front', 'side'],
             parts: [-0.45, 0, 0.45].map((z) => ({
               position: [0, 0, z] as [number, number, number],
-              size: [0.28, 0.12, 0.22] as [number, number, number],
+              size: [
+                alongSpanSize(0.22, spanLenScene, 0.12),
+                0.12,
+                0.22,
+              ] as [number, number, number],
               color,
             })),
             kind: 'solid',
@@ -1166,7 +1172,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
 
     if (el.group === 'abutment') {
       const side = idx <= 1 ? -1 : 1
-      const x = side * (SCENE_LENGTH / 2 + 0.05)
+      const x = abutmentX(side as -1 | 1, spans) + side * 0.05
       switch (el.scheduleNo) {
         case 400: {
           const size = resolveSize(bridge, el)
@@ -1242,9 +1248,10 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             height: size.height ?? 4.5,
           })
           const colH = Math.max(0.7, mToScene(bridge, sizeM.height, 'y'))
-          const dia = Math.max(
+          const dia = alongSpanSize(
+            Math.max(0.14, mToScene(bridge, size.diameter ?? sizeM.width, 'z')),
+            spanLenScene,
             0.18,
-            mToScene(bridge, size.diameter ?? sizeM.width, 'z'),
           )
           node = {
             element: el,
@@ -1274,7 +1281,11 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             faces: ['top', 'front', 'side'],
             parts: [-0.4, 0.4].map((z) => ({
               position: [0, 0, z] as [number, number, number],
-              size: [0.28, 0.12, 0.22] as [number, number, number],
+              size: [
+                alongSpanSize(0.22, spanLenScene, 0.12),
+                0.12,
+                0.22,
+              ] as [number, number, number],
               color,
             })),
             kind: 'solid',
@@ -1288,7 +1299,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
     // Approaches: structural wingwalls / retaining only (no embankment, road, barriers)
     if (el.group === 'approach') {
       const side = idx <= 1 ? -1 : 1
-      const x = side * (SCENE_LENGTH / 2 + 1.2)
+      const x = abutmentX(side as -1 | 1, spans) + side * 1.2
       if (el.scheduleNo === 401 || el.scheduleNo === 700) {
         node = {
           element: el,
