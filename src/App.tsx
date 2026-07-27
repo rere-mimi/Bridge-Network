@@ -140,6 +140,7 @@ export default function App() {
   }, [filters, structures])
 
   const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? structures[0]
+  const bridgeId = bridge?.id
 
   useEffect(() => {
     if (!bridge) return
@@ -154,13 +155,26 @@ export default function App() {
       setDrawnDefects(bridge.drawnDefects ?? [])
       setDraftRecommendations(bridge.recommendations ?? [])
     }
-  }, [bridge?.id, inspectionMode])
+    // Only re-seed when the structure or session mode changes — not on every bridge object refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: bridgeId + mode
+  }, [bridgeId, inspectionMode])
 
   // Reset selection only when switching structures — not when toggling scratch/follow-up.
   useEffect(() => {
     setSelectedElement(null)
     setIsolate(false)
-  }, [bridge?.id])
+  }, [bridgeId])
+
+  const nshmLookupKey = useMemo(
+    () =>
+      structures
+        .map(
+          (s) =>
+            `${s.id}:${s.lat.toFixed(4)},${s.lng.toFixed(4)}:${needsNshmEnrichment(s) ? '0' : '1'}`,
+        )
+        .join('|'),
+    [structures],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -173,11 +187,9 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [
-    structures
-      .map((s) => `${s.id}:${s.lat.toFixed(4)},${s.lng.toFixed(4)}:${needsNshmEnrichment(s) ? '0' : '1'}`)
-      .join('|'),
-  ])
+    // structures is read inside; key encodes which sites still need enrichment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by nshmLookupKey
+  }, [nshmLookupKey])
 
   const activePage = resolveActivePage(module, sidebar)
   const showOverview = !showHome && activePage === 'overview'
