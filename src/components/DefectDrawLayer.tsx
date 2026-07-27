@@ -22,6 +22,10 @@ type DefectDrawLayerProps = {
   defectCode?: string
   /** Full-bleed 2D board (no inset face restriction) */
   unrestricted?: boolean
+  /** Seed draft from an exact 3D mesh click (face UV 0–1) */
+  seedUv?: { x: number; y: number } | null
+  /** Bumps when a new 3D pick arrives so the seed is re-applied */
+  seedNonce?: number
 }
 
 type FaceRect = { x: number; y: number; w: number; h: number }
@@ -106,6 +110,8 @@ export function DefectDrawLayer({
   material,
   defectCode,
   unrestricted = true,
+  seedUv = null,
+  seedNonce = 0,
 }: DefectDrawLayerProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [draft, setDraft] = useState<NormPoint[]>([])
@@ -157,6 +163,17 @@ export function DefectDrawLayer({
     setDraft([])
     setCursor(null)
   }, [tool, active, face, selectedElementId])
+
+  // Apply exact 3D mesh hit as the first draft vertex on the 2D face
+  useEffect(() => {
+    if (!active || !tool || !seedUv || !selectedElementId) return
+    const point = quantize({
+      x: clamp01(seedUv.x),
+      y: clamp01(seedUv.y),
+    })
+    setDraft([point])
+    setCursor(point)
+  }, [seedNonce, seedUv, active, tool, selectedElementId])
 
   function buildDefect(points: NormPoint[], currentTool: DrawnDefectKind): DrawnDefect | null {
     const elementId = elementIdRef.current
