@@ -1234,18 +1234,51 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
         }
         case 302:
         case 306: {
-          // One bearing (or pedestal) per beam line for I / box bridges
+          // Simply supported: two bearings per beam line (one for each adjacent span end)
+          // e.g. 4 beams/span → 8 bearings on the pier
           const pad = bearingPadSizeScene(bridge, spanLenScene, roadW)
           const seatY = DECK_Y - 0.34
           const siblings = bridge.elements.filter(
             (e) => e.groupId === el.groupId && e.scheduleNo === el.scheduleNo,
           )
           const g = girderIndex(el)
+          const pierBearingCount = beamCount > 0 ? beamCount * 2 : 0
+          const capLen = pierCapLengthScene(bridge, spanLenScene)
+          // Offset toward each span from pier CL (both beam ends seated independently)
+          const offsetX = Math.max(pad.length * 0.55, capLen * 0.22)
+
+          const padSize = (
+            scheduleNo: number,
+          ): [number, number, number] => [
+            scheduleNo === 306 ? pad.length * 1.15 : pad.length,
+            scheduleNo === 306 ? pad.height * 1.2 : pad.height,
+            scheduleNo === 306 ? pad.width * 1.1 : pad.width,
+          ]
 
           if (beamCount > 0) {
-            // Per-beam instance (or single element covering all beams)
-            if (siblings.length >= beamCount) {
-              const z = columnSpreadZ(beamCount, roadHalf, Math.min(g, beamCount))
+            if (siblings.length >= pierBearingCount) {
+              const beamLine = ((g - 1) % beamCount) + 1
+              const towardNext = g > beamCount
+              const z = columnSpreadZ(beamCount, roadHalf, beamLine)
+              node = {
+                element: el,
+                position: [x + (towardNext ? offsetX : -offsetX), seatY, z],
+                sizeM: { length: 0.45, width: 0.55, height: 0.2 },
+                color,
+                faces: ['top', 'front', 'side'],
+                parts: [
+                  {
+                    position: [0, 0, 0],
+                    size: padSize(el.scheduleNo),
+                    color,
+                  },
+                ],
+                kind: 'solid',
+              }
+            } else if (siblings.length >= beamCount) {
+              // Legacy single-row inventory: still draw both span-end seats
+              const beamLine = Math.min(g, beamCount)
+              const z = columnSpreadZ(beamCount, roadHalf, beamLine)
               node = {
                 element: el,
                 position: [x, seatY, z],
@@ -1254,12 +1287,13 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
                 faces: ['top', 'front', 'side'],
                 parts: [
                   {
-                    position: [0, 0, 0],
-                    size: [
-                      el.scheduleNo === 306 ? pad.length * 1.15 : pad.length,
-                      el.scheduleNo === 306 ? pad.height * 1.2 : pad.height,
-                      el.scheduleNo === 306 ? pad.width * 1.1 : pad.width,
-                    ],
+                    position: [-offsetX, 0, 0],
+                    size: padSize(el.scheduleNo),
+                    color,
+                  },
+                  {
+                    position: [offsetX, 0, 0],
+                    size: padSize(el.scheduleNo),
                     color,
                   },
                 ],
@@ -1272,19 +1306,19 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
                 sizeM: { length: 0.5, width: 0.4, height: 0.2 },
                 color,
                 faces: ['top', 'front', 'side'],
-                parts: Array.from({ length: beamCount }, (_, i) => ({
-                  position: [0, 0, columnSpreadZ(beamCount, roadHalf, i + 1)] as [
-                    number,
-                    number,
-                    number,
-                  ],
-                  size: [
-                    el.scheduleNo === 306 ? pad.length * 1.15 : pad.length,
-                    el.scheduleNo === 306 ? pad.height * 1.2 : pad.height,
-                    el.scheduleNo === 306 ? pad.width * 1.1 : pad.width,
-                  ] as [number, number, number],
-                  color,
-                })),
+                parts: Array.from({ length: pierBearingCount }, (_, i) => {
+                  const beamLine = (i % beamCount) + 1
+                  const towardNext = i >= beamCount
+                  return {
+                    position: [
+                      towardNext ? offsetX : -offsetX,
+                      0,
+                      columnSpreadZ(beamCount, roadHalf, beamLine),
+                    ] as [number, number, number],
+                    size: padSize(el.scheduleNo),
+                    color,
+                  }
+                }),
                 kind: 'solid',
               }
             }
