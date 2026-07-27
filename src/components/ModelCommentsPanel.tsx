@@ -36,17 +36,19 @@ export function ModelCommentsPanel({
   const [author, setAuthor] = useState(defaultAuthor)
   const [role, setRole] = useState<ModelCommentAuthorRole>(defaultRole)
   const [face, setFace] = useState<DefectFace | ''>('')
+  /** Overview always auto-selects an element — allow explicit structure-wide pin. */
+  const [structureWide, setStructureWide] = useState(!element)
 
-  const comments = bridge.modelComments ?? []
+  const comments = bridge.modelComments
 
   const visible = useMemo(() => {
-    const open = comments.filter((c) => !c.resolvedAt)
+    const open = (comments ?? []).filter((c) => !c.resolvedAt)
     if (!element) {
       return open.filter((c) => !c.elementId)
     }
     const onElement = open.filter((c) => c.elementId === element.id)
-    const structureWide = open.filter((c) => !c.elementId)
-    return [...onElement, ...structureWide]
+    const wide = open.filter((c) => !c.elementId)
+    return [...onElement, ...wide]
   }, [comments, element])
 
   function persist(nextComments: ModelComment[]) {
@@ -63,40 +65,41 @@ export function ModelCommentsPanel({
   function handleAdd() {
     const body = text.trim()
     if (!body) return
+    const pinToStructure = structureWide || !element
     const comment: ModelComment = {
       id: `mc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       text: body,
       author: author.trim() || (role === 'pm' ? 'Project manager' : 'Inspector'),
       role,
       createdAt: new Date().toISOString(),
-      elementId: element?.id ?? null,
-      face: face || undefined,
+      elementId: pinToStructure ? null : element.id,
+      face: pinToStructure ? undefined : face || undefined,
       resolvedAt: null,
     }
-    persist([comment, ...comments])
+    persist([comment, ...(comments ?? [])])
     setText('')
   }
 
   function handleResolve(id: string) {
     persist(
-      comments.map((c) =>
+      (comments ?? []).map((c) =>
         c.id === id ? { ...c, resolvedAt: new Date().toISOString() } : c,
       ),
     )
   }
 
   function handleDelete(id: string) {
-    persist(comments.filter((c) => c.id !== id))
+    persist((comments ?? []).filter((c) => c.id !== id))
   }
 
   return (
     <div className="model-comments-panel">
       <p className="section-label">
-        {element ? 'Model comments on this element' : 'Structure briefings'}
+        {structureWide || !element ? 'Structure briefings' : 'Model comments on this element'}
       </p>
       <p className="page-note subtle">
-        PM briefings for the inspector live on the 3D model — select an element to pin a comment,
-        or leave structure-wide notes below.
+        PM briefings for the inspector live on the 3D model — pin to the selected element, or mark
+        structure-wide for a whole-structure note.
       </p>
 
       <div className="model-comments-form">
@@ -106,9 +109,9 @@ export function ModelCommentsPanel({
             rows={3}
             value={text}
             placeholder={
-              element
-                ? `Note for ${element.name} (${element.code})…`
-                : 'Structure-wide briefing for the next inspection…'
+              structureWide || !element
+                ? 'Structure-wide briefing for the next inspection…'
+                : `Note for ${element.name} (${element.code})…`
             }
             onChange={(e) => setText(e.target.value)}
           />
@@ -128,7 +131,7 @@ export function ModelCommentsPanel({
             <span>Author</span>
             <input value={author} onChange={(e) => setAuthor(e.target.value)} />
           </label>
-          {element && (
+          {element && !structureWide && (
             <label className="db-field">
               <span>Face</span>
               <select
@@ -144,6 +147,16 @@ export function ModelCommentsPanel({
             </label>
           )}
         </div>
+        {element && (
+          <label className="model-comments-wide">
+            <input
+              type="checkbox"
+              checked={structureWide}
+              onChange={(e) => setStructureWide(e.target.checked)}
+            />
+            <span>Structure-wide (not pinned to this element)</span>
+          </label>
+        )}
         <div className="mandate-actions">
           <button type="button" className="page-btn primary" onClick={handleAdd} disabled={!text.trim()}>
             Add to 3D model
@@ -181,16 +194,4 @@ export function ModelCommentsPanel({
       </ul>
     </div>
   )
-}
-
-/** Count open comments pinned to an element (for 3D markers). */
-export function openCommentCountByElement(
-  comments: ModelComment[] | undefined,
-): Map<string, number> {
-  const map = new Map<string, number>()
-  for (const c of comments ?? []) {
-    if (c.resolvedAt || !c.elementId) continue
-    map.set(c.elementId, (map.get(c.elementId) ?? 0) + 1)
-  }
-  return map
 }

@@ -4350,3 +4350,16 @@ button.linkish {
     grid-template-columns: 1fr;
   }
 }
+
+.model-comments-wide {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.model-comments-wide input {
+  accent-color: #eab308;
+}
