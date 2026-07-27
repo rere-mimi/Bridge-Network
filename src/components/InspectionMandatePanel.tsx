@@ -3,6 +3,7 @@ import type {
   BridgeAsset,
   InspectionMandate,
   InspectionMandateStatus,
+  InspectionSessionMode,
 } from '../types'
 import {
   addStructuresToMandate,
@@ -27,7 +28,7 @@ type InspectionMandatePanelProps = {
   inventory: BridgeAsset[]
   selectedStructureId: string
   onSelectStructure: (id: string) => void
-  onOpenTwin: (structureId?: string) => void
+  onOpenTwin: (structureId?: string, options?: { inspectionMode?: InspectionSessionMode }) => void
 }
 
 const STATUS_OPTIONS: InspectionMandateStatus[] = [
@@ -467,13 +468,26 @@ export function InspectionMandatePanel({
                     Edit mandate
                   </button>
                   {fieldSelectedId && (
-                    <button
-                      type="button"
-                      className="page-btn primary"
-                      onClick={() => onOpenTwin(fieldSelectedId)}
-                    >
-                      Inspect selected twin
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="page-btn"
+                        onClick={() =>
+                          onOpenTwin(fieldSelectedId, { inspectionMode: 'scratch' })
+                        }
+                      >
+                        Inspect from scratch
+                      </button>
+                      <button
+                        type="button"
+                        className="page-btn primary"
+                        onClick={() =>
+                          onOpenTwin(fieldSelectedId, { inspectionMode: 'follow-up' })
+                        }
+                      >
+                        Follow-up inspection
+                      </button>
+                    </>
                   )}
                 </div>
               </header>
@@ -537,10 +551,21 @@ export function InspectionMandatePanel({
                             </button>
                             <button
                               type="button"
-                              className="page-btn primary"
-                              onClick={() => onOpenTwin(bridge.id)}
+                              className="page-btn"
+                              onClick={() =>
+                                onOpenTwin(bridge.id, { inspectionMode: 'scratch' })
+                              }
                             >
-                              Open twin
+                              Scratch
+                            </button>
+                            <button
+                              type="button"
+                              className="page-btn primary"
+                              onClick={() =>
+                                onOpenTwin(bridge.id, { inspectionMode: 'follow-up' })
+                              }
+                            >
+                              Follow-up
                             </button>
                           </div>
                         </li>
@@ -573,7 +598,7 @@ function MandateStructureTable({
   onRemove: (id: string) => void
   onReorder: (id: string, direction: 'up' | 'down') => void
   onVisited: (id: string, visited: boolean) => void
-  onOpenTwin: (id?: string) => void
+  onOpenTwin: (id?: string, options?: { inspectionMode?: InspectionSessionMode }) => void
 }) {
   const byId = new Map(inventory.map((b) => [b.id, b]))
   const rows = mandate.items.slice().sort((a, b) => a.order - b.order)
@@ -646,10 +671,21 @@ function MandateStructureTable({
                         </button>
                         <button
                           type="button"
-                          className="page-btn primary"
-                          onClick={() => onOpenTwin(bridge.id)}
+                          className="page-btn"
+                          onClick={() =>
+                            onOpenTwin(bridge.id, { inspectionMode: 'scratch' })
+                          }
                         >
-                          Twin
+                          Scratch
+                        </button>
+                        <button
+                          type="button"
+                          className="page-btn primary"
+                          onClick={() =>
+                            onOpenTwin(bridge.id, { inspectionMode: 'follow-up' })
+                          }
+                        >
+                          Follow-up
                         </button>
                         <button
                           type="button"

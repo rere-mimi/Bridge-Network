@@ -44,8 +44,10 @@ import type {
   DrawnDefect,
   DrawnDefectKind,
   ImportedIfcMesh,
+  ModelComment,
 } from '../types'
 import { metresToScene } from '../data/ifcExchange'
+import { openCommentCountByElement } from './ModelCommentsPanel'
 
 type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
 
@@ -175,6 +177,52 @@ function CameraFrameOnce({
   }, [frameKey, isolate, target, axisFramed, camera, controls])
 
   return null
+}
+
+function CommentMarkers({
+  nodes,
+  comments,
+  viewXf,
+  selectedId,
+  onSelectId,
+}: {
+  nodes: SceneNode[]
+  comments: ModelComment[] | undefined
+  viewXf: { offsetX: number; scale: number }
+  selectedId: string | null
+  onSelectId: (id: string) => void
+}) {
+  const counts = openCommentCountByElement(comments)
+  if (counts.size === 0) return null
+  return (
+    <group>
+      {nodes.map((node) => {
+        const count = counts.get(node.element.id)
+        if (!count) return null
+        const x = node.position[0] * viewXf.scale + viewXf.offsetX
+        const y = node.position[1] + nodeExtent(node)[1] * 0.55 + 0.55
+        const z = node.position[2]
+        const active = selectedId === node.element.id
+        return (
+          <group key={`mc-${node.element.id}`} position={[x, y, z]}>
+            <Html center distanceFactor={16} zIndexRange={[100, 0]}>
+              <button
+                type="button"
+                className={`model-comment-chip ${active ? 'active' : ''}`}
+                title={`${count} open comment${count === 1 ? '' : 's'}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelectId(node.element.id)
+                }}
+              >
+                PM · {count}
+              </button>
+            </Html>
+          </group>
+        )
+      })}
+    </group>
+  )
 }
 
 function AxisLabelMarkers({ axes }: { axes: BridgeAxis[] }) {
@@ -342,6 +390,16 @@ function BridgeModel({
 
       {/* Labels stay unscaled so axis chips remain readable */}
       <AxisLabelMarkers axes={labelAxes} />
+      <CommentMarkers
+        nodes={visibleNodes}
+        comments={bridge.modelComments}
+        viewXf={viewXf}
+        selectedId={selectedId}
+        onSelectId={(id) => {
+          const node = findSceneNode(nodes, id)
+          if (node) onSelect(node, null)
+        }}
+      />
     </group>
   )
 }
