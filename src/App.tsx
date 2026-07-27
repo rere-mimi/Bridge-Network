@@ -154,9 +154,13 @@ export default function App() {
       setDrawnDefects(bridge.drawnDefects ?? [])
       setDraftRecommendations(bridge.recommendations ?? [])
     }
+  }, [bridge?.id, inspectionMode])
+
+  // Reset selection only when switching structures — not when toggling scratch/follow-up.
+  useEffect(() => {
     setSelectedElement(null)
     setIsolate(false)
-  }, [bridge?.id, inspectionMode])
+  }, [bridge?.id])
 
   useEffect(() => {
     let cancelled = false
@@ -344,6 +348,85 @@ export default function App() {
     URL.revokeObjectURL(url)
   }
 
+  const regions = useMemo(
+    () => [...new Set(structures.map((b) => b.region))],
+    [structures],
+  )
+  const types = useMemo(
+    () => [...new Set(structures.map((b) => b.structureType))],
+    [structures],
+  )
+
+  const preferred = useMemo(() => {
+    if (!bridge) return null
+    return (
+      bridge.elements.find((e) => e.scheduleNo === 201 && e.id.endsWith('-4')) ??
+      bridge.elements.find(
+        (e) => e.scheduleNo === 200 || e.scheduleNo === 600 || e.scheduleNo === 601,
+      ) ??
+      bridge.elements.find(
+        (e) => e.majorGroup === 'Superstructure' || e.majorGroup === 'Culvert',
+      ) ??
+      bridge.elements[0] ??
+      null
+    )
+  }, [bridge])
+
+  const activeElement = useMemo(() => {
+    if (selectedElement) return selectedElement
+    if (!preferred) return null
+    return {
+      id: preferred.id,
+      label: preferred.id,
+      element: preferred,
+    }
+  }, [selectedElement, preferred])
+
+  const elementDefects = useMemo(() => {
+    if (!bridge) return []
+    return bridge.defects.filter(
+      (d) =>
+        !activeElement ||
+        d.elementCode === activeElement.element.code ||
+        d.elementName === activeElement.element.id ||
+        d.elementName.includes(activeElement.element.groupId),
+    )
+  }, [bridge, activeElement])
+
+  const sceneNodes = useMemo(
+    () => (bridge ? buildSceneNodes(bridge) : []),
+    [bridge],
+  )
+  const pinnedDrawn = useMemo(
+    () =>
+      activeElement
+        ? drawnDefects.filter((d) => d.elementId === activeElement.element.id)
+        : [],
+    [activeElement, drawnDefects],
+  )
+  const defectSummary = useMemo(() => {
+    if (!bridge || !activeElement) return null
+    const node = findSceneNode(sceneNodes, activeElement.element.id)
+    return summarizeElementDefects(activeElement.element, drawnDefects, node?.sizeM, bridge)
+  }, [activeElement, drawnDefects, sceneNodes, bridge])
+
+  useEffect(() => {
+    if (!bridge) return
+    function onMessage(event: MessageEvent) {
+      const data = event.data
+      if (!data || typeof data !== 'object') return
+      if (data.type !== 'bridge-network-drawn-defect') return
+      if (data.bridgeId !== bridge.id || !data.defect) return
+      setDrawnDefects((prev) => [data.defect as DrawnDefect, ...prev])
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [bridge])
+
+  const materialLabel = activeElement?.element.material
+    ? MATERIAL_LABEL[normalizeMaterial(activeElement.element.material)]
+    : null
+
   if (!bridge) {
     return (
       <div className="twin-app">
@@ -356,63 +439,6 @@ export default function App() {
       </div>
     )
   }
-
-  const regions = [...new Set(structures.map((b) => b.region))]
-  const types = [...new Set(structures.map((b) => b.structureType))]
-
-  const preferred =
-    bridge.elements.find((e) => e.scheduleNo === 201 && e.id.endsWith('-4')) ??
-    bridge.elements.find((e) => e.scheduleNo === 200 || e.scheduleNo === 600 || e.scheduleNo === 601) ??
-    bridge.elements.find((e) => e.majorGroup === 'Superstructure' || e.majorGroup === 'Culvert') ??
-    bridge.elements[0]
-
-  const activeElement =
-    selectedElement ??
-    (preferred
-      ? {
-          id: preferred.id,
-          label: preferred.id,
-          element: preferred,
-        }
-      : null)
-
-  const elementDefects = bridge.defects.filter(
-    (d) =>
-      !activeElement ||
-      d.elementCode === activeElement.element.code ||
-      d.elementName === activeElement.element.id ||
-      d.elementName.includes(activeElement.element.groupId),
-  )
-
-  const sceneNodes = useMemo(() => buildSceneNodes(bridge), [bridge])
-  const pinnedDrawn = useMemo(
-    () =>
-      activeElement
-        ? drawnDefects.filter((d) => d.elementId === activeElement.element.id)
-        : [],
-    [activeElement, drawnDefects],
-  )
-  const defectSummary = useMemo(() => {
-    if (!activeElement) return null
-    const node = findSceneNode(sceneNodes, activeElement.element.id)
-    return summarizeElementDefects(activeElement.element, drawnDefects, node?.sizeM, bridge)
-  }, [activeElement, drawnDefects, sceneNodes, bridge])
-
-  useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      const data = event.data
-      if (!data || typeof data !== 'object') return
-      if (data.type !== 'bridge-network-drawn-defect') return
-      if (data.bridgeId !== bridge.id || !data.defect) return
-      setDrawnDefects((prev) => [data.defect as DrawnDefect, ...prev])
-    }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [bridge.id])
-
-  const materialLabel = activeElement?.element.material
-    ? MATERIAL_LABEL[normalizeMaterial(activeElement.element.material)]
-    : null
 
   return (
     <div className="twin-app">

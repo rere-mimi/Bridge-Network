@@ -47,7 +47,7 @@ import type {
   ModelComment,
 } from '../types'
 import { metresToScene } from '../data/ifcExchange'
-import { openCommentCountByElement } from './ModelCommentsPanel'
+import { openCommentCountByElement } from '../data/modelComments'
 
 type ViewerTab = '3d' | 'section' | 'map' | 'drawings'
 
