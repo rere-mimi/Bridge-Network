@@ -8,7 +8,8 @@
  *
  * When spans > 2, the user picks a 3-axis window to view, e.g.:
  *   Axis 1–3, Axis 2–4, Axis 3–5, …
- * Each window covers two consecutive spans.
+ * Each window covers two consecutive spans and is remapped to fill the 3D view
+ * so axes stay readable even when each span is only ~12 m on a long bridge.
  */
 
 import type { BridgeAsset, BridgeElement } from '../types'
@@ -38,11 +39,22 @@ export type AxisWindow = {
   spanGroupIds: string[]
   /** Support group ids in range, e.g. ["A1","P1","P2"] */
   supportGroupIds: string[]
-  /** Mid X of the window in scene units */
+  /** Mid X of the window in scene units (unscaled layout) */
   centreX: number
+  /** Width of the window in unscaled scene units (2 spans) */
+  widthScene: number
+  /** Approximate real length of the window (m) */
+  widthM: number
 }
 
-const SCENE_LENGTH = 10
+/** Matches sceneLayout SCENE_LENGTH — full bridge packed into this X range. */
+export const SCENE_LENGTH = 10
+
+/**
+ * Target scene width after remapping a 3-axis window into the camera frame.
+ * Keeps two 12 m spans visually separated instead of crushed together.
+ */
+export const AXIS_WINDOW_VIEW_WIDTH = 10
 
 function pierX(pierIndex: number, spans: number): number {
   const spanLen = SCENE_LENGTH / Math.max(spans, 1)
@@ -104,6 +116,8 @@ export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
 export function buildAxisWindows(bridge: BridgeAsset): AxisWindow[] {
   if (!needsAxisWindow(bridge)) return []
   const axes = buildBridgeAxes(bridge)
+  const spans = Math.max(bridge.spans, 1)
+  const spanLenM = bridge.lengthM / spans
   const windows: AxisWindow[] = []
   for (let start = 1; start <= axes.length - 2; start++) {
     const end = start + 2
@@ -112,6 +126,7 @@ export function buildAxisWindows(bridge: BridgeAsset): AxisWindow[] {
     const a2 = axes[start + 1]
     // Spans between consecutive axes: axis k → k+1 is span S(k)
     const spanGroupIds = [`S${start}`, `S${start + 1}`]
+    const widthScene = a2.xScene - a0.xScene
     windows.push({
       id: `${start}-${end}`,
       startAxis: start,
@@ -120,6 +135,8 @@ export function buildAxisWindows(bridge: BridgeAsset): AxisWindow[] {
       spanGroupIds,
       supportGroupIds: [a0.groupId, a1.groupId, a2.groupId],
       centreX: (a0.xScene + a2.xScene) / 2,
+      widthScene,
+      widthM: spanLenM * 2,
     })
   }
   return windows
@@ -156,7 +173,37 @@ export function elementInAxisWindow(
   return false
 }
 
+/**
+ * Remap a compressed multi-span layout so the selected 3-axis window fills the view.
+ * Uniform scale keeps pier / span proportions while spreading axes apart on screen.
+ */
+export function axisWindowViewTransform(window: AxisWindow | null): {
+  scale: number
+  offsetX: number
+} {
+  if (!window) return { scale: 1, offsetX: 0 }
+  const width = Math.max(window.widthScene, 0.05)
+  const scale = AXIS_WINDOW_VIEW_WIDTH / width
+  return {
+    scale,
+    offsetX: -window.centreX * scale,
+  }
+}
+
+/** Map an unscaled scene point into the remapped axis-window frame. */
+export function toAxisViewPoint(
+  point: [number, number, number],
+  transform: { scale: number; offsetX: number },
+): [number, number, number] {
+  const { scale, offsetX } = transform
+  return [point[0] * scale + offsetX, point[1] * scale, point[2] * scale]
+}
+
 export function axisWindowCaption(window: AxisWindow | null, spans: number): string {
   if (!window) return `All ${spans} spans`
-  return `${window.label} · ${window.spanGroupIds.join(' + ')}`
+  const metres =
+    window.widthM >= 10
+      ? `${Math.round(window.widthM)} m`
+      : `${window.widthM.toFixed(1)} m`
+  return `${window.label} · ${window.spanGroupIds.join(' + ')} · ${metres}`
 }

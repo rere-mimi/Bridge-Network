@@ -26,10 +26,12 @@ import { faceMetres } from '../data/defectMetrics'
 import {
   axesInWindow,
   axisWindowCaption,
+  axisWindowViewTransform,
   buildAxisWindows,
   elementInAxisWindow,
   findAxisWindow,
   needsAxisWindow,
+  toAxisViewPoint,
   type AxisWindow,
   type BridgeAxis,
 } from '../data/bridgeAxes'
@@ -117,12 +119,12 @@ function HighlightableMesh({
 function CameraFocus({
   isolate,
   target,
-  windowCentreX,
+  axisFramed,
 }: {
   isolate: boolean
   target: [number, number, number] | null
-  /** When set (multi-span axis window), orbit around this X */
-  windowCentreX?: number | null
+  /** Multi-span window remapped to fill the view (orbit around origin) */
+  axisFramed?: boolean
 }) {
   const { camera, controls } = useThree()
   const defaultPos = useRef(new THREE.Vector3(5.8, 3.4, 6.8))
@@ -148,12 +150,12 @@ function CameraFocus({
       return
     }
 
-    if (windowCentreX != null) {
-      const pivot = new THREE.Vector3(windowCentreX, 0.85, 0)
-      orbit.target.copy(pivot)
-      camera.position.set(windowCentreX + 3.2, 2.8, 5.2)
-      orbit.minDistance = 2
-      orbit.maxDistance = 14
+    if (axisFramed) {
+      // Window already remapped to ~AXIS_WINDOW_VIEW_WIDTH around origin
+      orbit.target.set(0, 0.9, 0)
+      camera.position.set(4.2, 2.9, 6.2)
+      orbit.minDistance = 2.5
+      orbit.maxDistance = 16
       orbit.update()
       return
     }
@@ -163,7 +165,7 @@ function CameraFocus({
     orbit.minDistance = 3
     orbit.maxDistance = 18
     orbit.update()
-  }, [isolate, target, windowCentreX, camera, controls])
+  }, [isolate, target, axisFramed, camera, controls])
 
   return null
 }
@@ -291,36 +293,46 @@ function BridgeModel({
   const hideOthers = isolate && !!selected
   const imported = bridge.importedModel?.meshes ?? []
   const hasImport = imported.length > 0
-  const labelAxes = useMemo(() => axesInWindow(bridge, axisWindow), [bridge, axisWindow])
+  const viewXf = useMemo(() => axisWindowViewTransform(axisWindow), [axisWindow])
+  const labelAxes = useMemo(() => {
+    const axes = axesInWindow(bridge, axisWindow)
+    return axes.map((axis) => ({
+      ...axis,
+      xScene: axis.xScene * viewXf.scale + viewXf.offsetX,
+    }))
+  }, [bridge, axisWindow, viewXf])
 
   return (
     <group>
       {/* Structural twin only — no ground, grass, water, or embankment */}
-      <gridHelper args={[24, 24, '#1e293b', '#0f172a']} position={[0, -0.5, 0]} />
+      <gridHelper args={[28, 28, '#1e293b', '#0f172a']} position={[0, -0.5, 0]} />
 
-      {/* Parametric twin — filtered to selected axis window when spans > 2 */}
-      {visibleNodes.map((node) => {
-        const active = selectedId === node.element.id
-        if (hideOthers && !active) return null
-        return (
-          <SceneNodeMesh
-            key={node.element.id}
-            node={node}
-            selected={active}
-            onSelect={() => onSelect(node)}
-          />
-        )
-      })}
+      {/* Remap selected axis window so 2 spans fill the frame (avoids side-by-side axes) */}
+      <group position={[viewXf.offsetX, 0, 0]} scale={viewXf.scale}>
+        {visibleNodes.map((node) => {
+          const active = selectedId === node.element.id
+          if (hideOthers && !active) return null
+          return (
+            <SceneNodeMesh
+              key={node.element.id}
+              node={node}
+              selected={active}
+              onSelect={() => onSelect(node)}
+            />
+          )
+        })}
 
+        {hasImport && (
+          <group>
+            {imported.map((mesh) => (
+              <ImportedIfcMeshView key={mesh.id} bridge={bridge} mesh={mesh} />
+            ))}
+          </group>
+        )}
+      </group>
+
+      {/* Labels stay unscaled so axis chips remain readable */}
       <AxisLabelMarkers axes={labelAxes} />
-
-      {hasImport && (
-        <group>
-          {imported.map((mesh) => (
-            <ImportedIfcMeshView key={mesh.id} bridge={bridge} mesh={mesh} />
-          ))}
-        </group>
-      )}
     </group>
   )
 }
@@ -390,20 +402,23 @@ export function TwinViewer({
 
   const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
   const selectedNode = findSceneNode(nodes, selectedElementId)
-  const focusTarget = selectedNode?.position ?? null
-  const selectedMaterial = selectedNode?.element.material
-  const materialCode = normalizeMaterial(selectedMaterial)
-  /** Defect tools always draw on the 2D face board so UV stays correct in 3D. */
-  const drawingIn2d = !!defectTool && !!selectedElementId
-  const show3d = viewMode === '3d' && !drawingIn2d
-  const show2dDraw = drawingIn2d || viewMode === 'section'
-
   const axisWindows = useMemo(() => buildAxisWindows(bridge), [bridge])
   const showAxisPicker = needsAxisWindow(bridge)
   const axisWindow = useMemo(
     () => (showAxisPicker ? findAxisWindow(bridge, axisWindowId) : null),
     [bridge, axisWindowId, showAxisPicker],
   )
+  const viewXf = useMemo(() => axisWindowViewTransform(axisWindow), [axisWindow])
+  const focusTarget = useMemo(() => {
+    if (!selectedNode) return null
+    return toAxisViewPoint(selectedNode.position, viewXf)
+  }, [selectedNode, viewXf])
+  const selectedMaterial = selectedNode?.element.material
+  const materialCode = normalizeMaterial(selectedMaterial)
+  /** Defect tools always draw on the 2D face board so UV stays correct in 3D. */
+  const drawingIn2d = !!defectTool && !!selectedElementId
+  const show3d = viewMode === '3d' && !drawingIn2d
+  const show2dDraw = drawingIn2d || viewMode === 'section'
 
   useEffect(() => {
     // Reset / clamp window when structure or span count changes
@@ -681,7 +696,14 @@ export function TwinViewer({
         </div>
       )}
 
-      <div className="viewer-stage" style={height ? { height, minHeight: height } : undefined}>
+      <div
+        className="viewer-stage"
+        style={
+          height
+            ? { height, minHeight: height }
+            : undefined
+        }
+      >
         {show3d && (
           <>
             <Canvas camera={{ position: [5.5, 3.2, 6.5], fov: 42 }} shadows>
@@ -714,7 +736,7 @@ export function TwinViewer({
               <CameraFocus
                 isolate={isolate}
                 target={focusTarget}
-                windowCentreX={!isolate && axisWindow ? axisWindow.centreX : null}
+                axisFramed={!isolate && !!axisWindow}
               />
             </Canvas>
 
@@ -795,8 +817,11 @@ export function TwinViewer({
               <div className="isolate-badge axis-window-badge">
                 {axisWindow.label}
                 <em>
-                  {axisWindow.supportGroupIds.join(' · ')} · spans{' '}
-                  {axisWindow.spanGroupIds.join(', ')}
+                  {axisWindow.supportGroupIds.join(' · ')} ·{' '}
+                  {axisWindow.widthM >= 10
+                    ? `${Math.round(axisWindow.widthM)} m`
+                    : `${axisWindow.widthM.toFixed(1)} m`}{' '}
+                  window
                 </em>
               </div>
             )}
