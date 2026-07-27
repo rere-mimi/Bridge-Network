@@ -9,10 +9,15 @@
  * When spans > 2, the user picks a 3-axis window to view, e.g.:
  *   Axis 1–3, Axis 2–4, Axis 3–5, …
  * Each window covers two consecutive spans and is remapped to fill the 3D view
- * so axes stay readable even when each span is only ~12 m on a long bridge.
+ * so short spans (e.g. Rakaia ~12 m) stay readable between piers.
  */
 
 import type { BridgeAsset, BridgeElement } from '../types'
+import {
+  AXIS_WINDOW_VIEW_WIDTH,
+  abutmentX,
+  pierX,
+} from './sceneMetrics'
 
 export type BridgeAxisKind = 'abutment' | 'pier'
 
@@ -47,20 +52,6 @@ export type AxisWindow = {
   widthM: number
 }
 
-/** Matches sceneLayout SCENE_LENGTH — full bridge packed into this X range. */
-export const SCENE_LENGTH = 10
-
-/**
- * Target scene width after remapping a 3-axis window into the camera frame.
- * Keeps two 12 m spans visually separated instead of crushed together.
- */
-export const AXIS_WINDOW_VIEW_WIDTH = 10
-
-function pierX(pierIndex: number, spans: number): number {
-  const spanLen = SCENE_LENGTH / Math.max(spans, 1)
-  return -SCENE_LENGTH / 2 + spanLen * pierIndex
-}
-
 /** True when the structure needs an axis-window selector. */
 export function needsAxisWindow(bridge: BridgeAsset): boolean {
   if (bridge.kind && bridge.kind !== 'bridge') return false
@@ -81,7 +72,7 @@ export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
     detail: 'A1 abutment',
     kind: 'abutment',
     groupId: 'A1',
-    xScene: -SCENE_LENGTH / 2,
+    xScene: abutmentX(-1, spans),
   })
 
   for (let p = 1; p <= spans - 1; p++) {
@@ -103,7 +94,7 @@ export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
     detail: 'A2 abutment',
     kind: 'abutment',
     groupId: 'A2',
-    xScene: SCENE_LENGTH / 2,
+    xScene: abutmentX(1, spans),
   })
 
   return axes
@@ -182,8 +173,7 @@ export function axisWindowViewTransform(window: AxisWindow | null): {
   offsetX: number
 } {
   if (!window) return { scale: 1, offsetX: 0 }
-  const width = Math.max(window.widthScene, 0.05)
-  const scale = AXIS_WINDOW_VIEW_WIDTH / width
+  const scale = AXIS_WINDOW_VIEW_WIDTH / Math.max(window.widthScene, 0.05)
   return {
     scale,
     offsetX: -window.centreX * scale,
