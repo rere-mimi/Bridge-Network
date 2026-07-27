@@ -5,6 +5,10 @@
  * into a sliver of a fixed 10-unit box — otherwise piers look adjacent with no
  * deck gap. Each span gets at least MIN_SPAN_SCENE units; long bridges grow
  * beyond SCENE_LENGTH and axis windows remap into the camera frame.
+ *
+ * Span beams / deck run support-centreline to support-centreline (bearing CL on
+ * the pier cap), matching simply-supported detailing: span N ends where span N+1
+ * starts.
  */
 
 export const SCENE_LENGTH = 10
@@ -14,6 +18,12 @@ export const MIN_SPAN_SCENE = 3.2
 
 /** Target remapped width for a 3-axis (2-span) window in the viewer. */
 export const AXIS_WINDOW_VIEW_WIDTH = 10
+
+/**
+ * Hairline joint at the bearing / pier centreline so adjacent beam ends meet
+ * there without z-fighting (beams terminate on the support CL, not short of it).
+ */
+export const SPAN_SUPPORT_JOINT = 0.025
 
 export function spanSceneLength(spans: number): number {
   return Math.max(SCENE_LENGTH / Math.max(spans, 1), MIN_SPAN_SCENE)
@@ -38,6 +48,15 @@ export function pierX(pierIndex: number, spans: number): number {
 
 export function abutmentX(side: -1 | 1, spans: number): number {
   return side * (bridgeSceneLength(spans) / 2)
+}
+
+/**
+ * Longitudinal length of a span member (beam / deck) in scene units.
+ * Ends at the bearing centreline on each support (pier cap / abutment).
+ */
+export function spanMemberLength(spans: number): number {
+  const pitch = spanSceneLength(spans)
+  return Math.max(pitch - SPAN_SUPPORT_JOINT, pitch * 0.99)
 }
 
 /** Keep support thickness from swallowing the span clear gap. */

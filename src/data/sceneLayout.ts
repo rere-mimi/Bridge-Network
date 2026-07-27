@@ -6,6 +6,7 @@ import {
   bridgeSceneLength,
   pierX,
   spanCentreX,
+  spanMemberLength,
   spanSceneLength,
 } from './sceneMetrics'
 import { sizeForSchedule } from './structureGeometry'
@@ -694,6 +695,8 @@ function buildTunnelNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
 function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
   const spans = Math.max(bridge.spans, 1)
   const spanLenScene = spanSceneLength(spans)
+  /** Beams/deck run support CL → support CL (bearing on pier cap). */
+  const memberLen = spanMemberLength(spans)
   const spanLenM = bridge.lengthM / spans
   const deckWidthM = bridge.deckWidthM ?? 12
   const roadW = roadWidthScene(deckWidthM)
@@ -743,7 +746,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             parts: [
               {
                 position: [0, 0, 0],
-                size: [spanLenScene * 0.9, deckH, roadW + 0.15],
+                size: [memberLen, deckH, roadW + 0.15],
                 color,
               },
             ],
@@ -768,7 +771,8 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
           const beamType = bridge.geometry?.beamType ?? 'open-ibeam'
           const h = Math.max(0.2, mToScene(bridge, sizeM.height, 'y'))
           const w = Math.max(0.12, mToScene(bridge, sizeM.width, 'z'))
-          const len = spanLenScene * 0.92
+          // Terminate at bearing / pier-cap centreline (simply supported)
+          const len = memberLen
           node = {
             element: el,
             position: [x, DECK_Y - h * 0.55, z],
@@ -821,22 +825,22 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             parts: [
               {
                 position: [0, h * 0.2, 0],
-                size: [spanLenScene * 0.92, h * 0.25, boxW],
+                size: [memberLen, h * 0.25, boxW],
                 color,
               },
               {
                 position: [0, -h * 0.15, boxW * 0.38],
-                size: [spanLenScene * 0.92, h * 0.7, Math.max(0.1, boxW * 0.12)],
+                size: [memberLen, h * 0.7, Math.max(0.1, boxW * 0.12)],
                 color,
               },
               {
                 position: [0, -h * 0.15, -boxW * 0.38],
-                size: [spanLenScene * 0.92, h * 0.7, Math.max(0.1, boxW * 0.12)],
+                size: [memberLen, h * 0.7, Math.max(0.1, boxW * 0.12)],
                 color,
               },
               {
                 position: [0, -h * 0.4, 0],
-                size: [spanLenScene * 0.92, h * 0.2, boxW * 0.85],
+                size: [memberLen, h * 0.2, boxW * 0.85],
                 color,
               },
             ],
@@ -920,9 +924,9 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
               })
             : { length: spanLenM, width: 0.55, height: 3.2 }
           const rise = Math.max(0.7, mToScene(bridge, archSize.height, 'y'))
-          const L = spanLenScene * 0.88
+          const L = memberLen
           const half = L / 2
-          // Keep posts off the springings
+          // Keep posts off the springings (support / bearing CL)
           const t = count <= 1 ? 0.5 : (idx - 0.5) / count
           const localX = -half + t * L
           const archY = archRiseAt(localX, half, rise)
@@ -1016,26 +1020,30 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
         case 402: {
           const size = resolveSize(bridge, el)
           const sizeM = toSceneSizeM(size, {
-            length: 1.2,
+            // Pier cap ~1.4 m along bridge (sketch) — seats bearings under both span ends
+            length: size.length ?? 1.4,
             width: deckWidthM * 0.7,
-            height: 0.8,
+            height: size.height ?? 1.0,
           })
-          const capH = Math.max(0.12, mToScene(bridge, sizeM.height, 'y'))
+          const capH = Math.max(0.14, mToScene(bridge, sizeM.height, 'y'))
           const capW = Math.max(roadW * 0.6, mToScene(bridge, sizeM.width, 'z'))
+          const capLen = alongSpanSize(
+            Math.max(0.32, mToScene(bridge, sizeM.length)),
+            spanLenScene,
+            0.28,
+          )
+          // Cap top seats bearings at the pier centreline
+          const capTopY = DECK_Y - 0.38
           node = {
             element: el,
-            position: [x, 0.95, 0],
+            position: [x, capTopY - capH / 2, 0],
             sizeM,
             color,
             faces: ['top', 'front', 'side'],
             parts: [
               {
                 position: [0, 0, 0],
-                size: [
-                  alongSpanSize(Math.max(0.28, mToScene(bridge, sizeM.length)), spanLenScene),
-                  capH,
-                  capW,
-                ],
+                size: [capLen, capH, capW],
                 color,
               },
             ],
@@ -1146,25 +1154,27 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
           }
           break
         case 302:
-        case 306:
+        case 306: {
+          // Bearings on pier-cap centreline — each adjacent span beam terminates here
+          const bearingH = 0.09
+          const bearingLen = alongSpanSize(0.12, spanLenScene, 0.07)
+          const bearingW = 0.2
+          const seatY = DECK_Y - 0.34
           node = {
             element: el,
-            position: [x, 1.08, 0],
+            position: [x, seatY, 0],
             sizeM: { length: 0.6, width: 0.5, height: 0.25 },
             color,
             faces: ['top', 'front', 'side'],
             parts: [-0.45, 0, 0.45].map((z) => ({
               position: [0, 0, z] as [number, number, number],
-              size: [
-                alongSpanSize(0.22, spanLenScene, 0.12),
-                0.12,
-                0.22,
-              ] as [number, number, number],
+              size: [bearingLen, bearingH, bearingW] as [number, number, number],
               color,
             })),
             kind: 'solid',
           }
           break
+        }
         default:
           break
       }
@@ -1272,25 +1282,26 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
           break
         }
         case 302:
-        case 306:
+        case 306: {
+          // Abutment bearings on the support centreline — span beam terminates here
+          const bearingH = 0.09
+          const bearingLen = alongSpanSize(0.12, spanLenScene, 0.07)
+          const seatY = DECK_Y - 0.34
           node = {
             element: el,
-            position: [x + side * -0.15, 1.08, 0],
+            position: [x + side * -0.02, seatY, 0],
             sizeM: { length: 0.6, width: 0.5, height: 0.25 },
             color,
             faces: ['top', 'front', 'side'],
             parts: [-0.4, 0.4].map((z) => ({
               position: [0, 0, z] as [number, number, number],
-              size: [
-                alongSpanSize(0.22, spanLenScene, 0.12),
-                0.12,
-                0.22,
-              ] as [number, number, number],
+              size: [bearingLen, bearingH, 0.2] as [number, number, number],
               color,
             })),
             kind: 'solid',
           }
           break
+        }
         default:
           break
       }
