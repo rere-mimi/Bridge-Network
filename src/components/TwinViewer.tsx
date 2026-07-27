@@ -1,13 +1,6 @@
 import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, Html, OrbitControls } from '@react-three/drei'
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import type { Mesh } from 'three'
 import * as THREE from 'three'
 import { openCrossSectionWindow } from './CrossSectionApp'
@@ -23,6 +16,7 @@ import {
   type DefectFace,
 } from '../data/defectTypes'
 import { faceMetres } from '../data/defectMetrics'
+import { pickFaceFromEvent } from '../data/meshPick'
 import {
   axesInWindow,
   axisWindowCaption,
@@ -59,9 +53,19 @@ function PartGeometry({ part }: { part: ScenePart }) {
   if (part.shape === 'cylinder') {
     const radius = Math.max(part.size[0], part.size[2]) * 0.5
     const length = part.size[1]
-    return <cylinderGeometry args={[radius, radius, length, 28, 1, true]} />
+    // Higher radial resolution for accurate raycast / visual detail
+    return <cylinderGeometry args={[radius, radius, length, 48, 1, true]} />
   }
-  return <boxGeometry args={part.size} />
+  // Explicit width/height/depth segments improve picking on large faces
+  const [sx, sy, sz] = part.size
+  const seg = (m: number) => (m > 2.5 ? 4 : m > 1.2 ? 2 : 1)
+  return <boxGeometry args={[sx, sy, sz, seg(sx), seg(sy), seg(sz)]} />
+}
+
+export type MeshPickResult = {
+  face: DefectFace
+  uv: { x: number; y: number }
+  point: [number, number, number]
 }
 
 function HighlightableMesh({
@@ -69,6 +73,8 @@ function HighlightableMesh({
   faded,
   color,
   emissive = '#7dd3fc',
+  partSize,
+  allowedFaces,
   children,
   onSelect,
   ...props
@@ -77,8 +83,10 @@ function HighlightableMesh({
   faded?: boolean
   color: string
   emissive?: string
+  partSize: [number, number, number]
+  allowedFaces?: DefectFace[]
   children: ReactNode
-  onSelect?: () => void
+  onSelect?: (pick: MeshPickResult | null) => void
 } & ComponentProps<'mesh'>) {
   const ref = useRef<Mesh>(null)
 
@@ -90,7 +98,8 @@ function HighlightableMesh({
       visible={!faded}
       onClick={(e) => {
         e.stopPropagation()
-        onSelect?.()
+        const pick = pickFaceFromEvent(e, partSize, allowedFaces)
+        onSelect?.(pick)
       }}
       onPointerOver={(e) => {
         e.stopPropagation()
@@ -116,19 +125,23 @@ function HighlightableMesh({
   )
 }
 
-function CameraFocus({
+/**
+ * Soft one-shot framing only — does not lock the orbit pivot.
+ * User can pan / orbit freely without being pulled back to a centre target.
+ */
+function CameraFrameOnce({
+  frameKey,
   isolate,
   target,
   axisFramed,
 }: {
+  frameKey: string
   isolate: boolean
   target: [number, number, number] | null
-  /** Multi-span window remapped to fill the view (orbit around origin) */
   axisFramed?: boolean
 }) {
   const { camera, controls } = useThree()
-  const defaultPos = useRef(new THREE.Vector3(5.8, 3.4, 6.8))
-  const defaultTarget = useRef(new THREE.Vector3(0, 0.7, 0))
+  const lastKey = useRef('')
 
   useEffect(() => {
     const orbit = controls as unknown as {
@@ -138,34 +151,28 @@ function CameraFocus({
       maxDistance: number
     } | null
     if (!orbit) return
+    if (lastKey.current === frameKey) return
+    lastKey.current = frameKey
 
     if (isolate && target) {
       const pivot = new THREE.Vector3(...target)
       orbit.target.copy(pivot)
-      const offset = new THREE.Vector3(2.4, 1.6, 2.6)
-      camera.position.copy(pivot).add(offset)
-      orbit.minDistance = 0.8
-      orbit.maxDistance = 8
+      camera.position.copy(pivot).add(new THREE.Vector3(2.4, 1.6, 2.6))
       orbit.update()
       return
     }
 
     if (axisFramed) {
-      // Window already remapped to ~AXIS_WINDOW_VIEW_WIDTH around origin
       orbit.target.set(0, 0.9, 0)
       camera.position.set(4.2, 2.9, 6.2)
-      orbit.minDistance = 2.5
-      orbit.maxDistance = 16
       orbit.update()
       return
     }
 
-    camera.position.copy(defaultPos.current)
-    orbit.target.copy(defaultTarget.current)
-    orbit.minDistance = 3
-    orbit.maxDistance = 18
+    orbit.target.set(0, 0.7, 0)
+    camera.position.set(5.8, 3.4, 6.8)
     orbit.update()
-  }, [isolate, target, axisFramed, camera, controls])
+  }, [frameKey, isolate, target, axisFramed, camera, controls])
 
   return null
 }
@@ -199,7 +206,7 @@ function SceneNodeMesh({
 }: {
   node: SceneNode
   selected: boolean
-  onSelect: () => void
+  onSelect: (pick: MeshPickResult | null) => void
 }) {
   const [, sy] = nodeExtent(node)
   return (
@@ -211,6 +218,8 @@ function SceneNodeMesh({
           color={part.color ?? node.color}
           position={part.position}
           rotation={part.rotation}
+          partSize={part.size}
+          allowedFaces={node.faces}
           onSelect={onSelect}
         >
           <PartGeometry part={part} />
@@ -282,7 +291,7 @@ function BridgeModel({
   isolate: boolean
   colorMode: SceneColorMode
   axisWindow: AxisWindow | null
-  onSelect: (node: SceneNode) => void
+  onSelect: (node: SceneNode, pick: MeshPickResult | null) => void
 }) {
   const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
   const visibleNodes = useMemo(
@@ -317,7 +326,7 @@ function BridgeModel({
               key={node.element.id}
               node={node}
               selected={active}
-              onSelect={() => onSelect(node)}
+              onSelect={(pick) => onSelect(node, pick)}
             />
           )
         })}
@@ -398,6 +407,8 @@ export function TwinViewer({
   const [defectFace, setDefectFace] = useState<DefectFace>('front')
   const [defectCode, setDefectCode] = useState<string | null>(null)
   const [axisWindowId, setAxisWindowId] = useState<string | null>(null)
+  const [seedUv, setSeedUv] = useState<{ x: number; y: number } | null>(null)
+  const [seedNonce, setSeedNonce] = useState(0)
   const controlsRef = useRef(null)
 
   const nodes = useMemo(() => buildSceneNodes(bridge, colorMode), [bridge, colorMode])
@@ -416,9 +427,9 @@ export function TwinViewer({
   const selectedMaterial = selectedNode?.element.material
   const materialCode = normalizeMaterial(selectedMaterial)
   /** Defect tools always draw on the 2D face board so UV stays correct in 3D. */
-  const drawingIn2d = !!defectTool && !!selectedElementId
-  const show3d = viewMode === '3d' && !drawingIn2d
-  const show2dDraw = drawingIn2d || viewMode === 'section'
+  const show3d = viewMode === '3d'
+  const show2dDraw = viewMode === 'section' || viewMode === 'drawings'
+  const drawingActive = !!defectTool && !!selectedElementId && show2dDraw
 
   useEffect(() => {
     // Reset / clamp window when structure or span count changes
@@ -451,33 +462,46 @@ export function TwinViewer({
   }, [defectTool, selectedMaterial, selectedElementId])
 
   function toggleTool(kind: DrawnDefectKind) {
-    if (!selectedElementId) return
     setDefectTool((t) => {
       const next = t === kind ? null : kind
-      if (next) {
-        onIsolateChange(true)
-        // Force 2D drawing surface so defects map to the face for later 3D display
-        onViewMode('section')
-      } else if (viewMode === 'section') {
+      if (next && (viewMode === 'section' || viewMode === 'drawings') && selectedElementId) {
+        // Already on a 2D board — draw immediately
+      } else if (next && viewMode === '3d') {
+        // Stay in 3D; next mesh click seeds UV and opens the 2D board
+      } else if (!next && viewMode === 'section') {
         onViewMode('3d')
       }
       return next
     })
   }
 
-  function handleElementSelect(node: SceneNode) {
+  function handleElementSelect(node: SceneNode, pick: MeshPickResult | null) {
     onSelectElement({
       id: node.element.id,
       label: node.element.name,
       element: node.element,
     })
     if (!isolate) onIsolateChange(false)
+
+    if (!pick) return
+
+    setDefectFace(pick.face)
+    setSeedUv(pick.uv)
+    setSeedNonce((n) => n + 1)
+
+    // Precise mesh pick while a draw tool is active → open 2D board at that UV
+    if (defectTool || viewMode === 'drawings') {
+      if (!defectTool) setDefectTool('crack')
+      if (viewMode === '3d') onViewMode('section')
+    }
   }
 
   function openSection() {
     if (!selectedElementId) return
     openCrossSectionWindow(bridge.id, selectedElementId)
   }
+
+  const frameKey = `${bridge.id}:${axisWindow?.id ?? 'all'}:${isolate ? selectedElementId : 'free'}`
 
   return (
     <section className={`twin-viewer ${fullscreen ? 'is-fullscreen' : ''}`}>
@@ -495,11 +519,9 @@ export function TwinViewer({
             type="button"
             className={viewMode === id ? 'active' : ''}
             onClick={() => {
-              if (id === 'section') {
-                onViewMode('section')
-                return
+              if (id === '3d' && defectTool && viewMode !== '3d') {
+                // Keep tool armed so user can re-pick on the mesh
               }
-              if (id === '3d' && defectTool) setDefectTool(null)
               onViewMode(id)
             }}
           >
@@ -533,7 +555,7 @@ export function TwinViewer({
         </button>
         <button
           type="button"
-          className={viewMode === 'section' || drawingIn2d ? 'active' : ''}
+          className={viewMode === 'section' || viewMode === 'drawings' || drawingActive ? 'active' : ''}
           disabled={!selectedElementId}
           title="Open 2D face view for defect drawing (popup overview also available)"
           onClick={() => {
@@ -610,11 +632,10 @@ export function TwinViewer({
         <button
           type="button"
           className={defectTool === 'crack' ? 'active danger' : ''}
-          disabled={!selectedElementId}
           title={
-            selectedElementId
-              ? `${toolTitle('crack', selectedMaterial)} — opens 2D face drawing`
-              : 'Select an element first to pin the defect'
+            defectTool === 'crack'
+              ? 'Click the exact point on the 3D mesh (or draw on the 2D face)'
+              : `${toolTitle('crack', selectedMaterial)} — click mesh point or draw in 2D`
           }
           onClick={() => toggleTool('crack')}
         >
@@ -623,12 +644,7 @@ export function TwinViewer({
         <button
           type="button"
           className={defectTool === 'spall' ? 'active warn' : ''}
-          disabled={!selectedElementId}
-          title={
-            selectedElementId
-              ? `${toolTitle('spall', selectedMaterial)} — opens 2D face drawing`
-              : 'Select an element first to pin the defect'
-          }
+          title={`${toolTitle('spall', selectedMaterial)} — click mesh point or draw in 2D`}
           onClick={() => toggleTool('spall')}
         >
           {toolLabel('spall', selectedMaterial)}
@@ -636,12 +652,7 @@ export function TwinViewer({
         <button
           type="button"
           className={defectTool === 'patch' ? 'active info' : ''}
-          disabled={!selectedElementId}
-          title={
-            selectedElementId
-              ? `${toolTitle('patch', selectedMaterial)} — opens 2D face drawing`
-              : 'Select an element first to pin the defect'
-          }
+          title={`${toolTitle('patch', selectedMaterial)} — click mesh point or draw in 2D`}
           onClick={() => toggleTool('patch')}
         >
           {toolLabel('patch', selectedMaterial)}
@@ -729,11 +740,16 @@ export function TwinViewer({
                 makeDefault
                 enableDamping
                 dampingFactor={0.08}
-                maxPolarAngle={Math.PI / 2.02}
-                minDistance={isolate ? 0.8 : 3}
-                maxDistance={isolate ? 8 : 16}
+                enablePan
+                screenSpacePanning
+                minDistance={0.05}
+                maxDistance={400}
+                // No polar clamp — free look above and below the model
+                maxPolarAngle={Math.PI}
+                minPolarAngle={0}
               />
-              <CameraFocus
+              <CameraFrameOnce
+                frameKey={frameKey}
                 isolate={isolate}
                 target={focusTarget}
                 axisFramed={!isolate && !!axisWindow}
@@ -805,13 +821,15 @@ export function TwinViewer({
             {showScale && <ScaleBar lengthM={bridge.lengthM} />}
 
             <p className="viewer-hint">
-              {!selectedElementId
-                ? 'Select an element first — then pick a defect tool to draw on its 2D face'
-                : isolate
-                  ? 'Isolated · pick a defect tool to draw in 2D · or open popup section'
-                  : showAxisPicker
-                    ? `${axisWindowCaption(axisWindow, bridge.spans)} · change View axes to move along the bridge`
-                    : 'Click any element · pick Crack / Spall / Patch to draw in 2D'}
+              {defectTool
+                ? 'Click the exact point on the element mesh — drawing opens on that face at the hit location'
+                : !selectedElementId
+                  ? 'Orbit freely · pan to look around · pick Crack / Spall / Patch then click the mesh to draw'
+                  : isolate
+                    ? 'Isolated · pick a defect tool then click the mesh at the defect location'
+                    : showAxisPicker
+                      ? `${axisWindowCaption(axisWindow, bridge.spans)} · free look · pick a defect tool then click the mesh`
+                      : 'Free look · pick Crack / Spall / Patch then click the exact mesh point to draw'}
             </p>
             {showAxisPicker && axisWindow && !isolate && (
               <div className="isolate-badge axis-window-badge">
@@ -841,7 +859,7 @@ export function TwinViewer({
         {show2dDraw && (
           <div className="defect-2d-stage">
             <DefectDrawLayer
-              active={drawingIn2d}
+              active={drawingActive}
               tool={defectTool}
               defects={drawnDefects}
               elementSizeM={elementSizeM}
@@ -851,18 +869,21 @@ export function TwinViewer({
               material={selectedMaterial}
               defectCode={defectCode ?? undefined}
               unrestricted
+              seedUv={seedUv}
+              seedNonce={seedNonce}
               onComplete={(defect) =>
                 onDrawnDefectsChange([defect, ...drawnDefects])
               }
             />
-            {!drawingIn2d && (
+            {!defectTool && (
               <p className="viewer-hint defect-2d-hint">
-                2D face view · select Crack / Spall / Patch to draw on this face
+                2D face · select Crack / Spall / Patch to draw · or return to 3D and click the exact mesh point
               </p>
             )}
-            {drawingIn2d && (
+            {defectTool && (
               <p className="viewer-hint defect-2d-hint">
-                Drawing on 2D · {FACE_LABEL[defectFace]} · defects stay pinned to this face in 3D
+                Drawing on 2D · {FACE_LABEL[defectFace]}
+                {seedUv ? ' · seeded from 3D click' : ''} · continue clicking on the face
               </p>
             )}
             <button
@@ -883,15 +904,6 @@ export function TwinViewer({
             <p>{bridge.name}</p>
             <span>
               {bridge.lat.toFixed(4)}, {bridge.lng.toFixed(4)} · {bridge.road}
-            </span>
-          </div>
-        )}
-
-        {viewMode === 'drawings' && (
-          <div className="viewer-fallback">
-            <p>Drawing set</p>
-            <span>
-              {bridge.documents.drawings} sheets available in the document register
             </span>
           </div>
         )}
