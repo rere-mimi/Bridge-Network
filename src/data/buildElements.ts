@@ -238,6 +238,56 @@ export function buildAppendixCElements(options: BuildElementsOptions): BridgeEle
         continue
       }
 
+      // I / box: one elastomeric bearing per beam at each support
+      if (
+        el.no === 302 &&
+        (group === 'pier' || group === 'abutment') &&
+        girderCountPerSpan > 0 &&
+        (beamIsOpen || beamIsBox)
+      ) {
+        const count = beamIsBox
+          ? Math.max(1, Math.min(girderCountPerSpan, 3))
+          : girderCountPerSpan
+        const pierCapLen = geometry.elementSizes?.[402]?.length ?? 1.4
+        const flangeW =
+          beamIsBox
+            ? geometry.elementSizes?.[202]?.width ?? deckWidthM * 0.55
+            : geometry.elementSizes?.[201]?.width ?? 0.45
+        const bearingSizeM: ElementSizeM = {
+          length: pierCapLen / 3,
+          width: flangeW * 1.25,
+          height: 0.05,
+        }
+        for (let g = 1; g <= count; g++) {
+          const id = formatElementId(bridgeId, groupId, el.no, g)
+          const conditionScore = hashScore(id, conditionBase - 1)
+          const riskScore = hashScore(`${id}-r`, riskBase + 3)
+          elements.push({
+            id,
+            bridgeId,
+            code,
+            scheduleNo: el.no,
+            name: `${el.name} ${g}`,
+            category: el.category,
+            majorGroup,
+            subgroup,
+            group,
+            groupId,
+            significance: el.significance as 1 | 2 | 3 | 4,
+            unit: el.unit,
+            totalQuantity: 1,
+            conditionScore,
+            riskScore,
+            band: bandFromScore(conditionScore),
+            material: desc?.material ?? preferredMaterial,
+            descriptionTitle: desc?.title,
+            description: desc?.description,
+            sizeM: bearingSizeM,
+          })
+        }
+        continue
+      }
+
       // Open-spandrel columns: one inventory row per post on the span
       if (el.no === 206 && group === 'span') {
         for (let c = 1; c <= spandrelColumnCount; c++) {

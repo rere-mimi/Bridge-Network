@@ -140,6 +140,56 @@ function roadWidthScene(deckWidthM: number) {
   return Math.min(3.2, Math.max(1.6, deckWidthM / 5))
 }
 
+/** Beams per span for I / box layouts (slab has no discrete beam bearings). */
+function beamsPerSpan(bridge: BridgeAsset): number {
+  const girderCount = Math.max(1, bridge.geometry?.girderCountPerSpan || 1)
+  const beamType = bridge.geometry?.beamType ?? 'open-ibeam'
+  if (beamType === 'slab') return 0
+  if (beamType === 'box') return Math.max(1, Math.min(girderCount, 3))
+  return girderCount
+}
+
+/** Bottom-flange width in scene Z (I-beam flange / box soffit width). */
+function bottomFlangeWidthScene(bridge: BridgeAsset, roadW: number): number {
+  const beamType = bridge.geometry?.beamType ?? 'open-ibeam'
+  const deckWidthM = bridge.deckWidthM ?? 12
+  if (beamType === 'box') {
+    const size = sizeForSchedule(bridge.geometry, 202)
+    const widthM = size.width ?? deckWidthM * 0.55
+    const count = beamsPerSpan(bridge)
+    if (count > 1) return Math.max(0.2, mToScene(bridge, widthM, 'z'))
+    return Math.max(0.35, roadW * 0.85 * 0.55)
+  }
+  const size = sizeForSchedule(bridge.geometry, 201)
+  const widthM = size.width ?? 0.45
+  return Math.max(0.12, mToScene(bridge, widthM, 'z'))
+}
+
+/** Pier-cap length along the roadway (scene X) — shared by cap mesh and bearings. */
+function pierCapLengthScene(bridge: BridgeAsset, spanLenScene: number): number {
+  const size = sizeForSchedule(bridge.geometry, 402)
+  const lengthM = size.length ?? 1.4
+  return alongSpanSize(Math.max(0.32, mToScene(bridge, lengthM)), spanLenScene, 0.28)
+}
+
+/**
+ * Elastomeric bearing under one beam line:
+ * width slightly > bottom flange; length ≈ 1/3 of pier cap.
+ */
+function bearingPadSizeScene(
+  bridge: BridgeAsset,
+  spanLenScene: number,
+  roadW: number,
+): { length: number; width: number; height: number } {
+  const flangeW = bottomFlangeWidthScene(bridge, roadW)
+  const capLen = pierCapLengthScene(bridge, spanLenScene)
+  return {
+    length: Math.max(0.08, capLen / 3),
+    width: Math.max(flangeW * 1.2, flangeW + 0.04),
+    height: 0.08,
+  }
+}
+
 function ibeamParts(
   length: number,
   height: number,
@@ -701,6 +751,11 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
   const deckWidthM = bridge.deckWidthM ?? 12
   const roadW = roadWidthScene(deckWidthM)
   const roadHalf = roadW / 2
+  const beamCount = beamsPerSpan(bridge)
+  const deckHDefault = Math.max(
+    0.08,
+    mToScene(bridge, sizeForSchedule(bridge.geometry, 200).height ?? 0.35, 'y'),
+  )
   const nodes: SceneNode[] = []
 
   for (const el of bridge.elements) {
@@ -713,22 +768,29 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
       const x = spanCentreX(idx, spans)
       switch (el.scheduleNo) {
         case 100:
+        case 101:
+        case 102: {
+          // Open joint flush with deck top — sits in the support CL gap
+          const supportX = x - spanLenScene / 2
+          const jointGap = 0.045
           node = {
             element: el,
-            position: [x - spanLenScene / 2 + 0.04, DECK_Y + 0.12, 0],
+            position: [supportX, DECK_Y, 0],
             sizeM: { length: 0.05, width: deckWidthM, height: 0.2 },
             color: '#f59e0b',
             faces: ['top', 'front', 'end'],
             parts: [
               {
                 position: [0, 0, 0],
-                size: [0.07, 0.08, roadW * 0.95],
+                // Same height/Y as deck slab so the joint is flush with deck level
+                size: [jointGap, deckHDefault, roadW + 0.15],
                 color: '#f59e0b',
               },
             ],
             kind: 'solid',
           }
           break
+        }
         case 200: {
           const size = resolveSize(bridge, el)
           const sizeM = toSceneSizeM(size, {
@@ -1027,11 +1089,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
           })
           const capH = Math.max(0.14, mToScene(bridge, sizeM.height, 'y'))
           const capW = Math.max(roadW * 0.6, mToScene(bridge, sizeM.width, 'z'))
-          const capLen = alongSpanSize(
-            Math.max(0.32, mToScene(bridge, sizeM.length)),
-            spanLenScene,
-            0.28,
-          )
+          const capLen = pierCapLengthScene(bridge, spanLenScene)
           // Cap top seats bearings at the pier centreline
           const capTopY = DECK_Y - 0.38
           node = {
@@ -1153,25 +1211,100 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             kind: 'solid',
           }
           break
-        case 302:
-        case 306: {
-          // Bearings on pier-cap centreline — each adjacent span beam terminates here
-          const bearingH = 0.09
-          const bearingLen = alongSpanSize(0.12, spanLenScene, 0.07)
-          const bearingW = 0.2
-          const seatY = DECK_Y - 0.34
+        case 100:
+        case 101:
+        case 102: {
+          // Open joint at pier CL — flush with deck level
           node = {
             element: el,
-            position: [x, seatY, 0],
-            sizeM: { length: 0.6, width: 0.5, height: 0.25 },
-            color,
-            faces: ['top', 'front', 'side'],
-            parts: [-0.45, 0, 0.45].map((z) => ({
-              position: [0, 0, z] as [number, number, number],
-              size: [bearingLen, bearingH, bearingW] as [number, number, number],
-              color,
-            })),
+            position: [x, DECK_Y, 0],
+            sizeM: { length: 0.05, width: deckWidthM, height: 0.2 },
+            color: '#f59e0b',
+            faces: ['top', 'front', 'end'],
+            parts: [
+              {
+                position: [0, 0, 0],
+                size: [0.045, deckHDefault, roadW + 0.15],
+                color: '#f59e0b',
+              },
+            ],
             kind: 'solid',
+          }
+          break
+        }
+        case 302:
+        case 306: {
+          // One bearing (or pedestal) per beam line for I / box bridges
+          const pad = bearingPadSizeScene(bridge, spanLenScene, roadW)
+          const seatY = DECK_Y - 0.34
+          const siblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === el.scheduleNo,
+          )
+          const g = girderIndex(el)
+
+          if (beamCount > 0) {
+            // Per-beam instance (or single element covering all beams)
+            if (siblings.length >= beamCount) {
+              const z = columnSpreadZ(beamCount, roadHalf, Math.min(g, beamCount))
+              node = {
+                element: el,
+                position: [x, seatY, z],
+                sizeM: { length: 0.45, width: 0.55, height: 0.2 },
+                color,
+                faces: ['top', 'front', 'side'],
+                parts: [
+                  {
+                    position: [0, 0, 0],
+                    size: [
+                      el.scheduleNo === 306 ? pad.length * 1.15 : pad.length,
+                      el.scheduleNo === 306 ? pad.height * 1.2 : pad.height,
+                      el.scheduleNo === 306 ? pad.width * 1.1 : pad.width,
+                    ],
+                    color,
+                  },
+                ],
+                kind: 'solid',
+              }
+            } else {
+              node = {
+                element: el,
+                position: [x, seatY, 0],
+                sizeM: { length: 0.5, width: 0.4, height: 0.2 },
+                color,
+                faces: ['top', 'front', 'side'],
+                parts: Array.from({ length: beamCount }, (_, i) => ({
+                  position: [0, 0, columnSpreadZ(beamCount, roadHalf, i + 1)] as [
+                    number,
+                    number,
+                    number,
+                  ],
+                  size: [
+                    el.scheduleNo === 306 ? pad.length * 1.15 : pad.length,
+                    el.scheduleNo === 306 ? pad.height * 1.2 : pad.height,
+                    el.scheduleNo === 306 ? pad.width * 1.1 : pad.width,
+                  ] as [number, number, number],
+                  color,
+                })),
+                kind: 'solid',
+              }
+            }
+          } else {
+            // Slab / non-girder: strip bearing along the pier
+            node = {
+              element: el,
+              position: [x, seatY, 0],
+              sizeM: { length: 0.5, width: deckWidthM * 0.5, height: 0.2 },
+              color,
+              faces: ['top', 'front', 'side'],
+              parts: [
+                {
+                  position: [0, 0, 0],
+                  size: [pad.length, pad.height, roadW * 0.7],
+                  color,
+                },
+              ],
+              kind: 'solid',
+            }
           }
           break
         }
@@ -1184,6 +1317,26 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
       const side = idx <= 1 ? -1 : 1
       const x = abutmentX(side as -1 | 1, spans) + side * 0.05
       switch (el.scheduleNo) {
+        case 100:
+        case 101:
+        case 102: {
+          node = {
+            element: el,
+            position: [abutmentX(side as -1 | 1, spans), DECK_Y, 0],
+            sizeM: { length: 0.05, width: deckWidthM, height: 0.2 },
+            color: '#f59e0b',
+            faces: ['top', 'front', 'end'],
+            parts: [
+              {
+                position: [0, 0, 0],
+                size: [0.045, deckHDefault, roadW + 0.15],
+                color: '#f59e0b',
+              },
+            ],
+            kind: 'solid',
+          }
+          break
+        }
         case 400: {
           const size = resolveSize(bridge, el)
           const sizeM = toSceneSizeM(size, {
@@ -1283,22 +1436,75 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
         }
         case 302:
         case 306: {
-          // Abutment bearings on the support centreline — span beam terminates here
-          const bearingH = 0.09
-          const bearingLen = alongSpanSize(0.12, spanLenScene, 0.07)
+          // One bearing per beam line on the abutment seat (I / box)
+          const pad = bearingPadSizeScene(bridge, spanLenScene, roadW)
           const seatY = DECK_Y - 0.34
-          node = {
-            element: el,
-            position: [x + side * -0.02, seatY, 0],
-            sizeM: { length: 0.6, width: 0.5, height: 0.25 },
-            color,
-            faces: ['top', 'front', 'side'],
-            parts: [-0.4, 0.4].map((z) => ({
-              position: [0, 0, z] as [number, number, number],
-              size: [bearingLen, bearingH, 0.2] as [number, number, number],
+          const siblings = bridge.elements.filter(
+            (e) => e.groupId === el.groupId && e.scheduleNo === el.scheduleNo,
+          )
+          const g = girderIndex(el)
+
+          if (beamCount > 0) {
+            if (siblings.length >= beamCount) {
+              const z = columnSpreadZ(beamCount, roadHalf, Math.min(g, beamCount))
+              node = {
+                element: el,
+                position: [x + side * -0.02, seatY, z],
+                sizeM: { length: 0.45, width: 0.55, height: 0.2 },
+                color,
+                faces: ['top', 'front', 'side'],
+                parts: [
+                  {
+                    position: [0, 0, 0],
+                    size: [
+                      el.scheduleNo === 306 ? pad.length * 1.15 : pad.length,
+                      el.scheduleNo === 306 ? pad.height * 1.2 : pad.height,
+                      el.scheduleNo === 306 ? pad.width * 1.1 : pad.width,
+                    ],
+                    color,
+                  },
+                ],
+                kind: 'solid',
+              }
+            } else {
+              node = {
+                element: el,
+                position: [x + side * -0.02, seatY, 0],
+                sizeM: { length: 0.45, width: 0.55, height: 0.2 },
+                color,
+                faces: ['top', 'front', 'side'],
+                parts: Array.from({ length: beamCount }, (_, i) => ({
+                  position: [0, 0, columnSpreadZ(beamCount, roadHalf, i + 1)] as [
+                    number,
+                    number,
+                    number,
+                  ],
+                  size: [
+                    el.scheduleNo === 306 ? pad.length * 1.15 : pad.length,
+                    el.scheduleNo === 306 ? pad.height * 1.2 : pad.height,
+                    el.scheduleNo === 306 ? pad.width * 1.1 : pad.width,
+                  ] as [number, number, number],
+                  color,
+                })),
+                kind: 'solid',
+              }
+            }
+          } else {
+            node = {
+              element: el,
+              position: [x + side * -0.02, seatY, 0],
+              sizeM: { length: 0.5, width: deckWidthM * 0.5, height: 0.2 },
               color,
-            })),
-            kind: 'solid',
+              faces: ['top', 'front', 'side'],
+              parts: [
+                {
+                  position: [0, 0, 0],
+                  size: [pad.length, pad.height, roadW * 0.7],
+                  color,
+                },
+              ],
+              kind: 'solid',
+            }
           }
           break
         }
