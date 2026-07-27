@@ -121,6 +121,11 @@ function pierX(pierIndex: number, spans: number): number {
   return -SCENE_LENGTH / 2 + spanLen * pierIndex
 }
 
+/** Keep support thickness from swallowing short spans (e.g. 12 m) in the 3D view. */
+function alongSpanSize(sizeScene: number, spanLenScene: number, maxFrac = 0.22): number {
+  return Math.min(Math.max(sizeScene, 0.12), spanLenScene * maxFrac)
+}
+
 function hasElement(bridge: BridgeAsset, scheduleNo: number) {
   return bridge.elements.some((e) => e.scheduleNo === scheduleNo)
 }
@@ -1029,7 +1034,11 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             parts: [
               {
                 position: [0, 0, 0],
-                size: [Math.max(0.4, mToScene(bridge, sizeM.length)), capH, capW],
+                size: [
+                  alongSpanSize(Math.max(0.28, mToScene(bridge, sizeM.length)), spanLenScene),
+                  capH,
+                  capW,
+                ],
                 color,
               },
             ],
@@ -1055,7 +1064,11 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             parts: [
               {
                 position: [0, 0, 0],
-                size: [Math.max(0.25, mToScene(bridge, sizeM.length)), wallH, wallW],
+                size: [
+                  alongSpanSize(Math.max(0.2, mToScene(bridge, sizeM.length)), spanLenScene),
+                  wallH,
+                  wallW,
+                ],
                 color,
               },
             ],
@@ -1163,7 +1176,7 @@ function buildBridgeNodes(bridge: BridgeAsset, colorMode: SceneColorMode): Scene
             height: 5,
           })
           const wallH = Math.max(0.9, mToScene(bridge, sizeM.height, 'y'))
-          const wallT = Math.max(0.3, mToScene(bridge, sizeM.length))
+          const wallT = alongSpanSize(Math.max(0.28, mToScene(bridge, sizeM.length)), spanLenScene, 0.28)
           node = {
             element: el,
             position: [x, wallH * 0.4, 0],

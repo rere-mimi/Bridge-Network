@@ -92,11 +92,6 @@ export default function App() {
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem('twin-left-collapsed') === '1'
   })
-  const [viewerHeight, setViewerHeight] = useState(() => {
-    if (typeof window === 'undefined') return 560
-    const saved = window.localStorage.getItem('twin-panel-h:viewer-stage')
-    return saved ? Number(saved) || 560 : 560
-  })
   const [selectedElement, setSelectedElement] = useState<{
     id: string
     label: string
@@ -747,13 +742,20 @@ export default function App() {
 
               <ResizablePanel
                 className="viewer-panel"
-                storageKey="viewer-stage"
-                defaultHeight={680}
-                minHeight={400}
-                maxHeight={typeof window !== 'undefined' ? Math.max(800, window.innerHeight - 80) : 960}
+                storageKey="viewer-stage-fill"
+                defaultHeight={
+                  typeof window !== 'undefined'
+                    ? Math.max(640, window.innerHeight - 200)
+                    : 720
+                }
+                minHeight={420}
+                maxHeight={
+                  typeof window !== 'undefined'
+                    ? Math.max(900, window.innerHeight - 40)
+                    : 1200
+                }
                 selected={selectedPanel === 'viewer'}
                 onSelect={() => setSelectedPanel('viewer')}
-                onHeightChange={setViewerHeight}
               >
                 {viewerFullscreen ? (
                   <div className="viewer-fullscreen-placeholder">
@@ -778,7 +780,6 @@ export default function App() {
                     }}
                     viewMode={viewMode}
                     onViewMode={setViewMode}
-                    height={Math.max(320, viewerHeight - 96)}
                     drawnDefects={drawnDefects}
                     onDrawnDefectsChange={setDrawnDefects}
                     isolate={isolate}
