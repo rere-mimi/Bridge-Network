@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { BridgeAsset, PlatformModule, SidebarId } from '../types'
+import type { BridgeAsset, InspectionSessionMode, PlatformModule, SidebarId } from '../types'
 import { conditionLabel } from '../data/bridges'
 import type { NzMapBridge } from '../data/nzBridgeCatalogue'
 import { ModelBuilder } from './ModelBuilder'
@@ -21,7 +21,10 @@ type ModulePagesProps = {
   selectedId: string
   editingId: string | null
   onSelectBridge: (id: string) => void
-  onOpenOverview: (structureId?: string) => void
+  onOpenOverview: (
+    structureId?: string,
+    options?: { inspectionMode?: InspectionSessionMode },
+  ) => void
   onOpenInspections: () => void
   onOpenCreateModel: () => void
   onEditStructure: (id: string) => void
@@ -218,7 +221,7 @@ export function ModulePages({
       {page === 'inspections' && (
         <PageShell
           title="Inspection mandates"
-          subtitle="PM builds the mandate by ID, CSV, or inventory select — inspectors use the field map to navigate structure to structure on site."
+          subtitle="PM builds the mandate and pins briefings on the 3D model. Inspectors navigate the field map, then start from scratch or follow up the previous inspection."
         >
           <InspectionMandatePanel
             inventory={allBridges}

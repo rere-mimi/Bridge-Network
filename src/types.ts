@@ -153,6 +153,26 @@ export type InspectionHistoryItem = {
   score: number
 }
 
+/** How a new inspection session is seeded from the last saved visit. */
+export type InspectionSessionMode = 'follow-up' | 'scratch'
+
+/** Free-text briefing / note pinned on the twin (PM → inspector, or field note). */
+export type ModelCommentAuthorRole = 'pm' | 'inspector'
+
+export type ModelComment = {
+  id: string
+  text: string
+  author: string
+  role: ModelCommentAuthorRole
+  createdAt: string
+  /** When set, comment is pinned to that Appendix C instance on the 3D model. */
+  elementId?: string | null
+  /** Optional inspection face when relevant */
+  face?: DefectFace
+  /** Soft-archive when resolved in a later visit */
+  resolvedAt?: string | null
+}
+
 export type MaintenanceRecommendationStatus =
   | 'proposed'
   | 'approved'
@@ -260,6 +280,11 @@ export type BridgeAsset = {
   defects: DefectRecord[]
   /** Drawn inspection defects persisted with the structure */
   drawnDefects?: DrawnDefect[]
+  /**
+   * PM / inspector comments pinned to the 3D model (element or structure-level).
+   * Briefings for the next visit live here — not in the mandate list.
+   */
+  modelComments?: ModelComment[]
   /** Revit / IFC mesh overlay (imported model) */
   importedModel?: ImportedIfcModel
   /** Costed maintenance activities selected at inspection */

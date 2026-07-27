@@ -17,6 +17,11 @@ import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { HomeLauncher } from './components/HomeLauncher'
 import { BrandLogo } from './components/BrandLogo'
 import { InspectionActivityPicker } from './components/InspectionActivityPicker'
+import {
+  InspectionSessionBar,
+  PreviousInspectionPanel,
+} from './components/InspectionSessionBar'
+import { ModelCommentsPanel } from './components/ModelCommentsPanel'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
 import { WidthResizableAside } from './components/WidthResizableAside'
@@ -28,6 +33,7 @@ import type {
   BridgeElement,
   DrawnDefect,
   Filters,
+  InspectionSessionMode,
   MaintenanceRecommendation,
   PlatformModule,
   SidebarId,
@@ -98,6 +104,7 @@ export default function App() {
     label: string
     element: BridgeElement
   } | null>(null)
+  const [inspectionMode, setInspectionMode] = useState<InspectionSessionMode>('follow-up')
 
   useEffect(() => {
     window.localStorage.setItem('twin-details-collapsed', detailsCollapsed ? '1' : '0')
@@ -135,11 +142,21 @@ export default function App() {
   const bridge = filtered.find((b) => b.id === selectedId) ?? filtered[0] ?? structures[0]
 
   useEffect(() => {
-    setDrawnDefects(bridge?.drawnDefects ?? [])
-    setDraftRecommendations(bridge?.recommendations ?? [])
+    if (!bridge) return
+    const hasPrevious =
+      (bridge.drawnDefects?.length ?? 0) > 0 ||
+      (bridge.recommendations?.length ?? 0) > 0 ||
+      bridge.inspections.length > 0
+    if (inspectionMode === 'scratch' || !hasPrevious) {
+      setDrawnDefects([])
+      setDraftRecommendations([])
+    } else {
+      setDrawnDefects(bridge.drawnDefects ?? [])
+      setDraftRecommendations(bridge.recommendations ?? [])
+    }
     setSelectedElement(null)
     setIsolate(false)
-  }, [bridge?.id])
+  }, [bridge?.id, inspectionMode])
 
   useEffect(() => {
     let cancelled = false
@@ -171,12 +188,16 @@ export default function App() {
     setTwinColorMode('material')
   }
 
-  function goOverview(structureId?: string) {
+  function goOverview(
+    structureId?: string,
+    options?: { inspectionMode?: InspectionSessionMode },
+  ) {
     if (structureId) setSelectedId(structureId)
     setShowHome(false)
     setModule('overview')
     setSidebar('home')
     setEditingId(null)
+    if (options?.inspectionMode) setInspectionMode(options.inspectionMode)
     if (workContext === 'general') setTwinColorMode('material')
   }
 
@@ -260,8 +281,9 @@ export default function App() {
       const node = findSceneNode(buildSceneNodes(bridge), el.id)
       defects = stampDefectConditionStates(defects, el, node?.sizeM)
     }
+    const modeLabel = inspectionMode === 'scratch' ? 'New inspection' : 'Follow-up inspection'
     const updated = applyRecommendationsToStructure(bridge, draftRecommendations, defects, {
-      inspectionSummary: `Inspection saved · ${draftRecommendations.filter((r) => r.status === 'proposed').length} proposed · est. ${formatMoney(
+      inspectionSummary: `${modeLabel} · ${draftRecommendations.filter((r) => r.status === 'proposed').length} proposed · est. ${formatMoney(
         draftRecommendations
           .filter((r) => r.status === 'proposed' || r.status === 'approved')
           .reduce((s, r) => s + r.totalCost, 0),
@@ -273,6 +295,15 @@ export default function App() {
     setStructures(enriched)
     setDrawnDefects(withHazard.drawnDefects ?? [])
     setDraftRecommendations(withHazard.recommendations ?? [])
+    setInspectionMode('follow-up')
+  }
+
+  function handleModelCommentsBridgeChange(updated: BridgeAsset) {
+    setStructures((prev) => {
+      const byId = new Map(prev.map((b) => [b.id, b]))
+      byId.set(updated.id, updated)
+      return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id))
+    })
   }
 
   function handleDatabaseCommit(structure: BridgeAsset) {
@@ -741,6 +772,14 @@ export default function App() {
                 onStructureCreated={handleIfcStructureCreated}
               />
 
+              <InspectionSessionBar
+                bridge={bridge}
+                mode={inspectionMode}
+                onModeChange={setInspectionMode}
+                previousDefects={bridge.drawnDefects ?? []}
+                previousRecommendations={bridge.recommendations ?? []}
+              />
+
               <ResizablePanel
                 className="viewer-panel"
                 storageKey="viewer-stage-fill"
@@ -874,6 +913,12 @@ export default function App() {
                         2D cross section
                       </button>
                     </div>
+                    <ModelCommentsPanel
+                      bridge={bridge}
+                      element={activeElement.element}
+                      onBridgeChange={handleModelCommentsBridgeChange}
+                      defaultRole="pm"
+                    />
                     {isolate && (
                       <DefectQuickAddPanel
                         element={activeElement.element}
@@ -957,7 +1002,7 @@ export default function App() {
                         className="page-btn primary"
                         onClick={() => void handleSaveInspection()}
                       >
-                        Save inspection
+                        Save {inspectionMode === 'scratch' ? 'new' : 'follow-up'} inspection
                       </button>
                       <span className="muted">
                         {draftRecommendations.length} activities ·{' '}
@@ -968,6 +1013,12 @@ export default function App() {
                         )}
                       </span>
                     </div>
+                    <PreviousInspectionPanel
+                      bridge={bridge}
+                      previousDefects={bridge.drawnDefects ?? []}
+                      previousRecommendations={bridge.recommendations ?? []}
+                      mode={inspectionMode}
+                    />
                     {pinnedDrawn.length > 0 && (
                       <>
                         <p className="section-label">Pinned drawn defects</p>
@@ -1012,6 +1063,26 @@ export default function App() {
                       <span>{bridge.documents.reports} reports</span>
                       <span>{bridge.documents.photos} photos</span>
                     </div>
+                  </div>
+                )}
+                {!activeElement && (
+                  <div className="element-detail">
+                    <p className="page-note">
+                      Select an element on the 3D model to pin PM briefings, or add a
+                      structure-wide note below.
+                    </p>
+                    <ModelCommentsPanel
+                      bridge={bridge}
+                      element={null}
+                      onBridgeChange={handleModelCommentsBridgeChange}
+                      defaultRole="pm"
+                    />
+                    <PreviousInspectionPanel
+                      bridge={bridge}
+                      previousDefects={bridge.drawnDefects ?? []}
+                      previousRecommendations={bridge.recommendations ?? []}
+                      mode={inspectionMode}
+                    />
                   </div>
                 )}
               </ResizablePanel>

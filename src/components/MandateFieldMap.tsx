@@ -39,7 +39,7 @@ type MandateFieldMapProps = {
   items: InspectionMandateItem[]
   selectedId: string | null
   onSelect: (id: string) => void
-  onOpenTwin?: (id: string) => void
+  onOpenTwin?: (id: string, options?: { inspectionMode?: 'scratch' | 'follow-up' }) => void
   className?: string
 }
 
@@ -134,13 +134,22 @@ export function MandateFieldMap({
                       Pin
                     </a>
                     {onOpenTwin && (
-                      <button
-                        type="button"
-                        className="page-btn primary"
-                        onClick={() => onOpenTwin(bridge.id)}
-                      >
-                        Open twin
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="page-btn"
+                          onClick={() => onOpenTwin(bridge.id, { inspectionMode: 'scratch' })}
+                        >
+                          Scratch
+                        </button>
+                        <button
+                          type="button"
+                          className="page-btn primary"
+                          onClick={() => onOpenTwin(bridge.id, { inspectionMode: 'follow-up' })}
+                        >
+                          Follow-up
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
