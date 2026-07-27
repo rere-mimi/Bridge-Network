@@ -52,3 +52,14 @@ declare global {
     google: typeof google
   }
 }
+
+/** Driving directions to a lat/lng pin (Google Maps). */
+export function googleMapsDirectionsUrl(lat: number, lng: number): string {
+  const destination = `${lat},${lng}`
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`
+}
+
+/** Deep-link pin on Google Maps at coordinates. */
+export function googleMapsPinUrl(lat: number, lng: number, name: string): string {
+  return `https://www.google.com/maps?q=${lat},${lng}(${encodeURIComponent(name)})`
+}

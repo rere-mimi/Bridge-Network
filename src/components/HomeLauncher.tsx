@@ -31,8 +31,8 @@ const ACTIONS: Array<{
 }> = [
   {
     id: 'inspection',
-    title: 'Open an inspection project',
-    blurb: 'Continue defect recording, activities, and condition capture on a structure.',
+    title: 'Plan an inspection mandate',
+    blurb: 'PM adds structures by ID, CSV, or select — then open the field map for on-site navigation.',
     meta: 'Inspections',
   },
   {
@@ -154,8 +154,8 @@ export function HomeLauncher({
         </div>
         <h1>Choose how you want to work</h1>
         <p className="home-lead">
-          Open an inspection, pick a structure by ID or map, prepare a model, or jump straight to
-          reports and maintenance.
+          Plan an inspection mandate, pick a structure by ID or map, prepare a model, or jump
+          straight to reports and maintenance.
         </p>
       </section>
 
