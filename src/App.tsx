@@ -15,6 +15,7 @@ import { findSceneNode, buildSceneNodes, type SceneColorMode } from './data/scen
 import { MiniMap } from './components/MiniMap'
 import { ModulePages, resolveActivePage } from './components/ModulePages'
 import { HomeLauncher } from './components/HomeLauncher'
+import { BrandLogo } from './components/BrandLogo'
 import { InspectionActivityPicker } from './components/InspectionActivityPicker'
 import { ResizablePanel } from './components/ResizablePanel'
 import { TwinViewer } from './components/TwinViewer'
@@ -387,7 +388,7 @@ export default function App() {
       <header className="topbar">
         <button type="button" className="brand" onClick={goHome} title="Home menu">
           <div className="brand-mark" aria-hidden="true">
-            ⌁
+            <BrandLogo className="brand-mark-svg" />
           </div>
           <div>
             <p className="brand-title">Bridge Network</p>

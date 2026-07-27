@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MiniMap } from './MiniMap'
+import { BrandLogo } from './BrandLogo'
 import type { BridgeAsset, PlatformModule } from '../types'
 
 export type HomeActionId =
@@ -147,7 +148,10 @@ export function HomeLauncher({
   return (
     <main className="home-launcher" aria-label="Home menu">
       <section className="home-hero">
-        <p className="home-kicker">Bridge Network</p>
+        <div className="home-brand-row">
+          <BrandLogo className="home-brand-logo" />
+          <p className="home-kicker">Bridge Network</p>
+        </div>
         <h1>Choose how you want to work</h1>
         <p className="home-lead">
           Open an inspection, pick a structure by ID or map, prepare a model, or jump straight to
