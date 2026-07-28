@@ -110,7 +110,7 @@ p {
   border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 0 1px rgba(156, 163, 175, 0.35);
 }
 
 .brand-mark-svg {

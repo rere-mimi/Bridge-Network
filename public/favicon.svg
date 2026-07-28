@@ -1,19 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="Bridge Network">
   <defs>
     <linearGradient id="g" x1="4" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0ea5e9"/>
-      <stop offset="1" stop-color="#0369a1"/>
+      <stop stop-color="#6b7280"/>
+      <stop offset="1" stop-color="#374151"/>
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#g)"/>
-  <rect x="5" y="15" width="22" height="12" rx="1.5" fill="#e0f2fe" opacity="0.95"/>
-  <rect x="5" y="15" width="22" height="3" fill="#7dd3fc"/>
-  <g stroke="#0369a1" stroke-opacity="0.4" stroke-width="0.7">
-    <path d="M5 18.5h22M5 21.5h22M5 24.5h22"/>
-    <path d="M10.5 15v12M16 15v12M21.5 15v12"/>
-  </g>
-  <path d="M6 18.5 C10 7, 22 7, 26 18.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
-  <path d="M7 18.5 C11 9, 21 9, 25 18.5" stroke="#f8fafc" stroke-width="0.9" stroke-linecap="round" fill="none"/>
-  <path d="M9 18.5v6M16 14v10.5M23 18.5v6" stroke="#0f172a" stroke-width="1.3" stroke-linecap="round" opacity="0.85"/>
-  <path d="M6 18.5h20" stroke="#f8fafc" stroke-width="1.2" stroke-linecap="round"/>
+  <rect x="1.75" y="1.75" width="28.5" height="28.5" rx="6.5" stroke="#9ca3af" stroke-opacity="0.45" stroke-width="1"/>
+  <path fill="#dc2626" fill-rule="evenodd" d="M7 7h6.1c2.68 0 4.45 1.35 4.45 3.52 0 1.48-0.78 2.58-2.08 3.1 1.62 0.52 2.68 1.78 2.68 3.6 0 2.48-1.92 4.28-4.88 4.28H7V7zm3.2 5.95h1.02c1.28 0 2.02-0.6 2.02-1.6s-0.74-1.52-2.02-1.52H10.2v3.12zm0 6.7h1.22c1.45 0 2.32-0.7 2.32-1.8s-0.87-1.75-2.32-1.75H10.2v3.55z"/>
+  <path fill="#dc2626" d="M18.25 7h3.28l5.1 11.02V7H29v18h-3.3l-5.12-11.08V25h-2.33V7z"/>
 </svg>

@@ -1,41 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Bridge Network">
   <defs>
     <linearGradient id="bn-bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0ea5e9"/>
-      <stop offset="1" stop-color="#0369a1"/>
+      <stop stop-color="#6b7280"/>
+      <stop offset="1" stop-color="#374151"/>
     </linearGradient>
   </defs>
-  <!-- Mark plate -->
   <rect width="64" height="64" rx="14" fill="url(#bn-bg)"/>
-  <!-- Spreadsheet sheet -->
-  <rect x="10" y="28" width="44" height="26" rx="3" fill="#e0f2fe" opacity="0.95"/>
-  <!-- Sheet header row -->
-  <rect x="10" y="28" width="44" height="6" rx="3" fill="#7dd3fc"/>
-  <rect x="10" y="31" width="44" height="3" fill="#7dd3fc"/>
-  <!-- Grid lines (spreadsheet) -->
-  <g stroke="#0369a1" stroke-opacity="0.35" stroke-width="1">
-    <path d="M10 34.5h44M10 40.5h44M10 46.5h44"/>
-    <path d="M21 28v26M32 28v26M43 28v26"/>
-  </g>
-  <!-- Arch bridge over the sheet -->
-  <path
-    d="M12 36 C20 12, 44 12, 52 36"
-    stroke="#0f172a"
-    stroke-width="3.2"
-    stroke-linecap="round"
-    fill="none"
-    opacity="0.88"
-  />
-  <path
-    d="M14 36 C21 16, 43 16, 50 36"
-    stroke="#f8fafc"
-    stroke-width="1.6"
-    stroke-linecap="round"
-    fill="none"
-  />
-  <!-- Pier / abutment posts reading as spreadsheet columns -->
-  <path d="M18 36v12M32 28v20M46 36v12" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round" opacity="0.8"/>
-  <path d="M18 36v12M32 28v20M46 36v12" stroke="#38bdf8" stroke-width="1" stroke-linecap="round"/>
-  <!-- Deck line -->
-  <path d="M12 36h40" stroke="#f8fafc" stroke-width="2" stroke-linecap="round"/>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="12" stroke="#9ca3af" stroke-opacity="0.45" stroke-width="1.5"/>
+  <path fill="#dc2626" fill-rule="evenodd" d="M14 14h12.2c5.35 0 8.9 2.7 8.9 7.05 0 2.95-1.55 5.15-4.15 6.2 3.25 1.05 5.35 3.55 5.35 7.2 0 4.95-3.85 8.55-9.75 8.55H14V14zm6.4 11.9h2.05c2.55 0 4.05-1.2 4.05-3.2 0-1.95-1.5-3.05-4.05-3.05H20.4v6.25zm0 13.4h2.45c2.9 0 4.65-1.4 4.65-3.6s-1.75-3.5-4.65-3.5H20.4v7.1z"/>
+  <path fill="#dc2626" d="M36.5 14h6.55l10.2 22.05V14H59v36h-6.6L42.15 27.85V50H36.5V14z"/>
 </svg>

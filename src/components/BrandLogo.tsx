@@ -3,7 +3,7 @@ type BrandLogoProps = {
   title?: string
 }
 
-/** Spreadsheet + arch-bridge mark for Bridge Network. */
+/** BN monogram mark for Bridge Network — red letters on grey. */
 export function BrandLogo({ className = '', title = 'Bridge Network' }: BrandLogoProps) {
   return (
     <svg
@@ -15,48 +15,33 @@ export function BrandLogo({ className = '', title = 'Bridge Network' }: BrandLog
       aria-label={title}
     >
       <defs>
-        <linearGradient id="bn-logo-bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#0ea5e9" />
-          <stop offset="1" stopColor="#0369a1" />
+        <linearGradient id="bn-logo-plate" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#6b7280" />
+          <stop offset="1" stopColor="#374151" />
         </linearGradient>
       </defs>
-      <rect width="64" height="64" rx="14" fill="url(#bn-logo-bg)" />
-      <rect x="10" y="28" width="44" height="26" rx="3" fill="#e0f2fe" opacity="0.95" />
-      <rect x="10" y="28" width="44" height="6" rx="3" fill="#7dd3fc" />
-      <rect x="10" y="31" width="44" height="3" fill="#7dd3fc" />
-      <g stroke="#0369a1" strokeOpacity="0.35" strokeWidth="1">
-        <path d="M10 34.5h44M10 40.5h44M10 46.5h44" />
-        <path d="M21 28v26M32 28v26M43 28v26" />
-      </g>
-      <path
-        d="M12 36 C20 12, 44 12, 52 36"
-        stroke="#0f172a"
-        strokeWidth="3.2"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.88"
+      <rect width="64" height="64" rx="14" fill="url(#bn-logo-plate)" />
+      <rect
+        x="3.5"
+        y="3.5"
+        width="57"
+        height="57"
+        rx="12"
+        stroke="#9ca3af"
+        strokeOpacity="0.45"
+        strokeWidth="1.5"
       />
+      {/* B — stem + bowls with counters */}
       <path
-        d="M14 36 C21 16, 43 16, 50 36"
-        stroke="#f8fafc"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        fill="none"
+        fill="#dc2626"
+        fillRule="evenodd"
+        d="M14 14h12.2c5.35 0 8.9 2.7 8.9 7.05 0 2.95-1.55 5.15-4.15 6.2 3.25 1.05 5.35 3.55 5.35 7.2 0 4.95-3.85 8.55-9.75 8.55H14V14zm6.4 11.9h2.05c2.55 0 4.05-1.2 4.05-3.2 0-1.95-1.5-3.05-4.05-3.05H20.4v6.25zm0 13.4h2.45c2.9 0 4.65-1.4 4.65-3.6s-1.75-3.5-4.65-3.5H20.4v7.1z"
       />
+      {/* N */}
       <path
-        d="M18 36v12M32 28v20M46 36v12"
-        stroke="#0f172a"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        opacity="0.8"
+        fill="#dc2626"
+        d="M36.5 14h6.55l10.2 22.05V14H59v36h-6.6L42.15 27.85V50H36.5V14z"
       />
-      <path
-        d="M18 36v12M32 28v20M46 36v12"
-        stroke="#38bdf8"
-        strokeWidth="1"
-        strokeLinecap="round"
-      />
-      <path d="M12 36h40" stroke="#f8fafc" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
 }
