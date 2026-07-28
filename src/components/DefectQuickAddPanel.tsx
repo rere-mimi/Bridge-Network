@@ -1,6 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { BridgeAsset, BridgeElement, ConditionState, DrawnDefect } from '../types'
-import { defectsForMaterial, DEFECT_TYPE_BY_CODE } from '../data/defectTypes'
+import {
+  defectsForMaterial,
+  DEFECT_TYPE_BY_CODE,
+  MATERIAL_LABEL,
+  normalizeMaterial,
+} from '../data/defectTypes'
 import {
   resolveInspectableAreaM2,
   linearDefectDensityMPerM2,
@@ -28,6 +33,7 @@ export function DefectQuickAddPanel({
   onAdd,
   compact = false,
 }: DefectQuickAddPanelProps) {
+  const materialCode = normalizeMaterial(element.material)
   const catalogue = useMemo(
     () => defectsForMaterial(element.material),
     [element.material],
@@ -41,6 +47,13 @@ export function DefectQuickAddPanel({
     () => catalogue[0]?.code ?? '1150',
   )
   const [cs, setCs] = useState<ConditionState>(2)
+
+  useEffect(() => {
+    if (!catalogue.some((d) => d.code === defectCode)) {
+      setDefectCode(catalogue[0]?.code ?? '1150')
+    }
+  }, [catalogue, defectCode])
+
   const selectedType = DEFECT_TYPE_BY_CODE[defectCode] ?? catalogue[0]
   const geometry = selectedType?.geometry ?? 'area'
 
@@ -92,7 +105,8 @@ export function DefectQuickAddPanel({
     <div className={`defect-quick-add${compact ? ' compact' : ''}`}>
       <p className="section-label">Add defect (isolate / section)</p>
       <p className="page-note subtle">
-        Material {(element.material ?? 'C').toUpperCase()} · inspectable area{' '}
+        Filtered to <strong>{MATERIAL_LABEL[materialCode]}</strong> ({materialCode}) ·{' '}
+        {catalogue.length} types · inspectable area{' '}
         <strong>{inspectable.areaM2.toFixed(2)} m²</strong>
       </p>
       <p className="defect-area-formula" title="Verify in elementInspectableArea.ts">
@@ -100,7 +114,7 @@ export function DefectQuickAddPanel({
       </p>
 
       <label className="defect-quick-field">
-        <span>Defect type</span>
+        <span>Defect type ({materialCode})</span>
         <select
           value={selectedType?.code ?? defectCode}
           onChange={(e) => {
@@ -187,7 +201,12 @@ export function DefectQuickAddPanel({
         </li>
       </ul>
 
-      <button type="button" className="page-btn primary" onClick={handleAdd}>
+      <button
+        type="button"
+        className="page-btn primary"
+        onClick={handleAdd}
+        disabled={!selectedType}
+      >
         Add defect
       </button>
     </div>
