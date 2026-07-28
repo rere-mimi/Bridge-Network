@@ -1,10 +1,14 @@
 /**
- * Support-axis windows for multi-span bridges.
+ * Support-axis windows for multi-span bridges, and opening axes for culverts.
  *
- * Convention (N spans → N+1 axes):
+ * Bridge convention (N spans → N+1 axes along the road / X):
  *   Axis 1     = Abutment A1 (start)
  *   Axis 2..N  = Piers P1..P(N-1)
  *   Axis N+1   = Abutment A2 (end)
+ *
+ * Culvert convention (opening faces along the stream / Z, ⊥ to the road):
+ *   Axis 1 = Inlet opening
+ *   Axis 2 = Outlet opening
  *
  * When spans > 2, the user picks a 3-axis window to view, e.g.:
  *   Axis 1–3, Axis 2–4, Axis 3–5, …
@@ -18,20 +22,28 @@ import {
   abutmentX,
   pierX,
 } from './sceneMetrics'
+import { culvertSceneMetrics, structureIsCulvert } from './sceneLayout'
 
-export type BridgeAxisKind = 'abutment' | 'pier'
+export type BridgeAxisKind = 'abutment' | 'pier' | 'opening'
 
 export type BridgeAxis = {
   /** 1-based axis index along the structure */
   index: number
   /** Short UI label, e.g. "Axis 1" */
   label: string
-  /** Detail, e.g. "A1 abutment" / "P2 pier" */
+  /** Detail, e.g. "A1 abutment" / "Inlet opening" */
   detail: string
   kind: BridgeAxisKind
   groupId: string
-  /** Scene X of the support line (same convention as sceneLayout) */
+  /** Scene X of the support line (road direction). Culvert openings use 0. */
   xScene: number
+  /**
+   * Scene Z of the axis line. Culvert openings sit on the barrel faces
+   * (perpendicular to the road). Bridges leave this undefined (Z = 0).
+   */
+  zScene?: number
+  /** Plan alignment of the axis line. */
+  alignment?: 'road' | 'opening'
 }
 
 export type AxisWindow = {
@@ -61,8 +73,34 @@ export function needsAxisWindow(bridge: BridgeAsset): boolean {
   return bridge.spans > 2
 }
 
-/** Build ordered support axes for a bridge (abutment → piers → abutment). */
+/** Build ordered support axes for a bridge, or opening axes for a culvert. */
 export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
+  if (structureIsCulvert(bridge)) {
+    const { inletZ, outletZ } = culvertSceneMetrics(bridge)
+    return [
+      {
+        index: 1,
+        label: 'Axis 1',
+        detail: 'Inlet opening',
+        kind: 'opening',
+        groupId: 'IN',
+        xScene: 0,
+        zScene: inletZ,
+        alignment: 'opening',
+      },
+      {
+        index: 2,
+        label: 'Axis 2',
+        detail: 'Outlet opening',
+        kind: 'opening',
+        groupId: 'OUT',
+        xScene: 0,
+        zScene: outletZ,
+        alignment: 'opening',
+      },
+    ]
+  }
+
   const spans = Math.max(bridge.spans, 1)
   const axes: BridgeAxis[] = []
 
@@ -73,6 +111,7 @@ export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
     kind: 'abutment',
     groupId: 'A1',
     xScene: abutmentX(-1, spans),
+    alignment: 'road',
   })
 
   for (let p = 1; p <= spans - 1; p++) {
@@ -84,6 +123,7 @@ export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
       kind: 'pier',
       groupId: `P${p}`,
       xScene: pierX(p, spans),
+      alignment: 'road',
     })
   }
 
@@ -95,6 +135,7 @@ export function buildBridgeAxes(bridge: BridgeAsset): BridgeAxis[] {
     kind: 'abutment',
     groupId: 'A2',
     xScene: abutmentX(1, spans),
+    alignment: 'road',
   })
 
   return axes
