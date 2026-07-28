@@ -203,9 +203,14 @@ export function normalizeMaterial(raw?: string | null): MaterialCode {
   return 'O'
 }
 
+/**
+ * Appendix E types that apply to this element material.
+ * Strict match on the element's material code only — do not pull in every
+ * "Other (O)" catalogue entry, or inspectors see the full list every time.
+ */
 export function defectsForMaterial(material?: string | null): DefectType[] {
   const mat = normalizeMaterial(material)
-  return DEFECT_TYPES.filter((d) => d.materials.includes(mat) || d.materials.includes('O'))
+  return DEFECT_TYPES.filter((d) => d.materials.includes(mat))
 }
 
 export function defectsForMaterialAndGeometry(
@@ -223,6 +228,10 @@ export function defaultDefectCode(
   return DRAW_DEFAULTS[mat][kind]
 }
 
+/**
+ * Defect picker options for a draw tool, limited to the selected element's material.
+ * Preferred Appendix E codes first, then other matching geometry types for that material.
+ */
 export function defectTypesForTool(
   kind: DrawnDefectKind,
   material?: string | null,
@@ -231,7 +240,7 @@ export function defectTypesForTool(
   const geometry: DefectGeometry = kind === 'crack' ? 'line' : 'area'
   const preferred = DRAW_ALTERNATES[mat][kind]
     .map((c) => DEFECT_TYPE_BY_CODE[c])
-    .filter((d): d is DefectType => Boolean(d))
+    .filter((d): d is DefectType => Boolean(d) && d.materials.includes(mat))
   const extras = defectsForMaterialAndGeometry(mat, geometry).filter(
     (d) => !preferred.some((p) => p.code === d.code),
   )

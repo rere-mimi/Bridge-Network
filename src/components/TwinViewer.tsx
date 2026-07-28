@@ -750,7 +750,7 @@ export function TwinViewer({
             </select>
           </label>
           <label>
-            Appendix E
+            Appendix E ({materialCode} · {toolOptions.length})
             <select
               value={defectCode ?? ''}
               onChange={(e) => setDefectCode(e.target.value)}
