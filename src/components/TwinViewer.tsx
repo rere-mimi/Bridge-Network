@@ -228,21 +228,32 @@ function CommentMarkers({
 function AxisLabelMarkers({ axes }: { axes: BridgeAxis[] }) {
   return (
     <group>
-      {axes.map((axis) => (
-        <group key={axis.index} position={[axis.xScene, 2.15, 0]}>
-          {/* Vertical axis tick */}
-          <mesh position={[0, -0.85, 0]}>
-            <boxGeometry args={[0.04, 1.7, 0.04]} />
-            <meshStandardMaterial color="#38bdf8" transparent opacity={0.55} />
-          </mesh>
-          <Html center distanceFactor={14} style={{ pointerEvents: 'none' }}>
-            <div className="axis-label-chip">
-              <strong>{axis.label}</strong>
-              <span>{axis.detail}</span>
-            </div>
-          </Html>
-        </group>
-      ))}
+      {axes.map((axis) => {
+        const x = axis.xScene
+        const z = axis.zScene ?? 0
+        const opening = axis.alignment === 'opening' || axis.kind === 'opening'
+        return (
+          <group key={axis.index} position={[x, 2.15, z]}>
+            {/* Vertical tick; opening axes also show a cross-line on the face (along road X) */}
+            <mesh position={[0, -0.85, 0]}>
+              <boxGeometry args={[0.04, 1.7, 0.04]} />
+              <meshStandardMaterial color="#38bdf8" transparent opacity={0.55} />
+            </mesh>
+            {opening && (
+              <mesh position={[0, -1.35, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <boxGeometry args={[0.04, 1.4, 0.04]} />
+                <meshStandardMaterial color="#f87171" transparent opacity={0.7} />
+              </mesh>
+            )}
+            <Html center distanceFactor={14} style={{ pointerEvents: 'none' }}>
+              <div className="axis-label-chip">
+                <strong>{axis.label}</strong>
+                <span>{axis.detail}</span>
+              </div>
+            </Html>
+          </group>
+        )
+      })}
     </group>
   )
 }
@@ -355,7 +366,12 @@ function BridgeModel({
     const axes = axesInWindow(bridge, axisWindow)
     return axes.map((axis) => ({
       ...axis,
-      xScene: axis.xScene * viewXf.scale + viewXf.offsetX,
+      // Only remap road-aligned axes through the span window transform.
+      xScene:
+        axis.alignment === 'opening'
+          ? axis.xScene
+          : axis.xScene * viewXf.scale + viewXf.offsetX,
+      zScene: axis.zScene ?? 0,
     }))
   }, [bridge, axisWindow, viewXf])
 

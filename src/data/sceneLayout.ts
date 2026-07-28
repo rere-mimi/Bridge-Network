@@ -136,6 +136,42 @@ function isCulvert(bridge: BridgeAsset) {
   )
 }
 
+export function structureIsCulvert(bridge: BridgeAsset) {
+  return isCulvert(bridge)
+}
+
+/** Barrel / opening metrics shared by 3D layout and axis labels. */
+export function culvertSceneMetrics(bridge: BridgeAsset) {
+  const deckWidthM = bridge.deckWidthM ?? 8
+  const roadW = roadWidthScene(deckWidthM)
+  const lengthM = Math.max(bridge.lengthM, 6)
+  const barrelElPreview =
+    bridge.elements.find((e) => [600, 601, 602, 603].includes(e.scheduleNo)) ?? null
+  const barrelSize = barrelElPreview ? resolveSize(bridge, barrelElPreview) : {}
+  const barrelLen = Math.max(
+    roadW + 1.6,
+    Math.min(5.4, mToScene(bridge, barrelSize.length ?? lengthM * 0.35) || 2.4 + lengthM / 18),
+  )
+  const openingH = Math.max(
+    0.55,
+    mToScene(bridge, barrelSize.openingHeight ?? barrelSize.height ?? 1.05, 'y') || 1.05,
+  )
+  const openingW = Math.min(
+    2.6,
+    Math.max(1.2, barrelSize.width ?? barrelSize.diameter ?? roadW * 0.7),
+  )
+  return {
+    roadW,
+    lengthM,
+    barrelLen,
+    openingH,
+    openingW,
+    /** Inlet / outlet face Z (opening planes, perpendicular to the road). */
+    inletZ: -barrelLen / 2,
+    outletZ: barrelLen / 2,
+  }
+}
+
 function roadWidthScene(deckWidthM: number) {
   return Math.min(3.2, Math.max(1.6, deckWidthM / 5))
 }
@@ -408,26 +444,8 @@ function elementColor(
 }
 
 function buildCulvertNodes(bridge: BridgeAsset, colorMode: SceneColorMode): SceneNode[] {
+  const { lengthM, barrelLen, openingH, openingW } = culvertSceneMetrics(bridge)
   const deckWidthM = bridge.deckWidthM ?? 8
-  const roadW = roadWidthScene(deckWidthM)
-  const lengthM = Math.max(bridge.lengthM, 6)
-  // Barrel / stream along Z (perpendicular to roadway on X)
-  const barrelElPreview =
-    bridge.elements.find((e) => [600, 601, 602, 603].includes(e.scheduleNo)) ?? null
-  const barrelSize = barrelElPreview ? resolveSize(bridge, barrelElPreview) : {}
-  const barrelLen = Math.max(
-    roadW + 1.6,
-    Math.min(5.4, mToScene(bridge, barrelSize.length ?? lengthM * 0.35) || 2.4 + lengthM / 18),
-  )
-  const openingH = Math.max(
-    0.55,
-    mToScene(bridge, barrelSize.openingHeight ?? barrelSize.height ?? 1.05, 'y') || 1.05,
-  )
-  // Clear opening width across the channel (along X, under the road)
-  const openingW = Math.min(
-    2.6,
-    Math.max(1.2, barrelSize.width ?? barrelSize.diameter ?? roadW * 0.7),
-  )
   const wall = 0.16
   const invertY = 0.08
   const roofY = invertY + openingH + wall
