@@ -4,9 +4,17 @@
       <stop stop-color="#6b7280"/>
       <stop offset="1" stop-color="#374151"/>
     </linearGradient>
+    <linearGradient id="book" x1="10" y1="5" x2="26" y2="27" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#b91c1c"/>
+    </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#g)"/>
   <rect x="1.75" y="1.75" width="28.5" height="28.5" rx="6.5" stroke="#9ca3af" stroke-opacity="0.45" stroke-width="1"/>
-  <path fill="#dc2626" fill-rule="evenodd" d="M7 7h6.1c2.68 0 4.45 1.35 4.45 3.52 0 1.48-0.78 2.58-2.08 3.1 1.62 0.52 2.68 1.78 2.68 3.6 0 2.48-1.92 4.28-4.88 4.28H7V7zm3.2 5.95h1.02c1.28 0 2.02-0.6 2.02-1.6s-0.74-1.52-2.02-1.52H10.2v3.12zm0 6.7h1.22c1.45 0 2.32-0.7 2.32-1.8s-0.87-1.75-2.32-1.75H10.2v3.55z"/>
-  <path fill="#dc2626" d="M18.25 7h3.28l5.1 11.02V7H29v18h-3.3l-5.12-11.08V25h-2.33V7z"/>
+  <path fill="url(#book)" d="M9 6.25c0-.55.45-1 1-1h12.25c.83 0 1.5.67 1.5 1.5v18.5c0 .83-.67 1.5-1.5 1.5H10c-.55 0-1-.45-1-1V6.25z"/>
+  <path fill="#7f1d1d" d="M9 6.25c0-.55.45-1 1-1h2.25v22H10c-.55 0-1-.45-1-1V6.25z"/>
+  <path fill="#fca5a5" fill-opacity="0.35" d="M10.25 5.5h.8v22h-.8z"/>
+  <path fill="#f3f4f6" d="M22.75 6.75h1.1c.45 0 .8.35.8.8v17.4c0 .45-.35.8-.8.8h-1.1V6.75z"/>
+  <rect x="13.5" y="11" width="7" height="1.2" rx="0.6" fill="#fecaca" fill-opacity="0.85"/>
+  <rect x="13.5" y="13.75" width="5" height="0.9" rx="0.45" fill="#fecaca" fill-opacity="0.55"/>
 </svg>

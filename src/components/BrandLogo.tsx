@@ -3,7 +3,7 @@ type BrandLogoProps = {
   title?: string
 }
 
-/** BN monogram mark for Bridge Network — red letters on grey. */
+/** Red book mark for Bridge Network. */
 export function BrandLogo({ className = '', title = 'Bridge Network' }: BrandLogoProps) {
   return (
     <svg
@@ -19,6 +19,10 @@ export function BrandLogo({ className = '', title = 'Bridge Network' }: BrandLog
           <stop stopColor="#6b7280" />
           <stop offset="1" stopColor="#374151" />
         </linearGradient>
+        <linearGradient id="bn-book-cover" x1="20" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ef4444" />
+          <stop offset="1" stopColor="#b91c1c" />
+        </linearGradient>
       </defs>
       <rect width="64" height="64" rx="14" fill="url(#bn-logo-plate)" />
       <rect
@@ -31,17 +35,21 @@ export function BrandLogo({ className = '', title = 'Bridge Network' }: BrandLog
         strokeOpacity="0.45"
         strokeWidth="1.5"
       />
-      {/* B — stem + bowls with counters */}
+      {/* Book body */}
       <path
-        fill="#dc2626"
-        fillRule="evenodd"
-        d="M14 14h12.2c5.35 0 8.9 2.7 8.9 7.05 0 2.95-1.55 5.15-4.15 6.2 3.25 1.05 5.35 3.55 5.35 7.2 0 4.95-3.85 8.55-9.75 8.55H14V14zm6.4 11.9h2.05c2.55 0 4.05-1.2 4.05-3.2 0-1.95-1.5-3.05-4.05-3.05H20.4v6.25zm0 13.4h2.45c2.9 0 4.65-1.4 4.65-3.6s-1.75-3.5-4.65-3.5H20.4v7.1z"
+        fill="url(#bn-book-cover)"
+        d="M18 12.5c0-1.1.9-2 2-2h24.5c1.66 0 3 1.34 3 3v37c0 1.66-1.34 3-3 3H20c-1.1 0-2-.9-2-2V12.5z"
       />
-      {/* N */}
-      <path
-        fill="#dc2626"
-        d="M36.5 14h6.55l10.2 22.05V14H59v36h-6.6L42.15 27.85V50H36.5V14z"
-      />
+      {/* Spine */}
+      <path fill="#7f1d1d" d="M18 12.5c0-1.1.9-2 2-2h4.5v45.5H20c-1.1 0-2-.9-2-2V12.5z" />
+      {/* Spine highlight */}
+      <path fill="#fca5a5" fillOpacity="0.35" d="M20.5 11h1.6v44.5h-1.6z" />
+      {/* Page block edge */}
+      <path fill="#f3f4f6" d="M45.5 13.5h2.2c.9 0 1.6.7 1.6 1.6v34.8c0 .9-.7 1.6-1.6 1.6h-2.2V13.5z" />
+      <path stroke="#d1d5db" strokeWidth="0.7" d="M46.2 16.5v30M47.4 16.5v30" />
+      {/* Cover title band */}
+      <rect x="27" y="22" width="14" height="2.4" rx="1.2" fill="#fecaca" fillOpacity="0.85" />
+      <rect x="27" y="27.5" width="10" height="1.8" rx="0.9" fill="#fecaca" fillOpacity="0.55" />
     </svg>
   )
 }

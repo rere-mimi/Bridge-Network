@@ -4,9 +4,18 @@
       <stop stop-color="#6b7280"/>
       <stop offset="1" stop-color="#374151"/>
     </linearGradient>
+    <linearGradient id="bn-book" x1="20" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#b91c1c"/>
+    </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#bn-bg)"/>
   <rect x="3.5" y="3.5" width="57" height="57" rx="12" stroke="#9ca3af" stroke-opacity="0.45" stroke-width="1.5"/>
-  <path fill="#dc2626" fill-rule="evenodd" d="M14 14h12.2c5.35 0 8.9 2.7 8.9 7.05 0 2.95-1.55 5.15-4.15 6.2 3.25 1.05 5.35 3.55 5.35 7.2 0 4.95-3.85 8.55-9.75 8.55H14V14zm6.4 11.9h2.05c2.55 0 4.05-1.2 4.05-3.2 0-1.95-1.5-3.05-4.05-3.05H20.4v6.25zm0 13.4h2.45c2.9 0 4.65-1.4 4.65-3.6s-1.75-3.5-4.65-3.5H20.4v7.1z"/>
-  <path fill="#dc2626" d="M36.5 14h6.55l10.2 22.05V14H59v36h-6.6L42.15 27.85V50H36.5V14z"/>
+  <path fill="url(#bn-book)" d="M18 12.5c0-1.1.9-2 2-2h24.5c1.66 0 3 1.34 3 3v37c0 1.66-1.34 3-3 3H20c-1.1 0-2-.9-2-2V12.5z"/>
+  <path fill="#7f1d1d" d="M18 12.5c0-1.1.9-2 2-2h4.5v45.5H20c-1.1 0-2-.9-2-2V12.5z"/>
+  <path fill="#fca5a5" fill-opacity="0.35" d="M20.5 11h1.6v44.5h-1.6z"/>
+  <path fill="#f3f4f6" d="M45.5 13.5h2.2c.9 0 1.6.7 1.6 1.6v34.8c0 .9-.7 1.6-1.6 1.6h-2.2V13.5z"/>
+  <path stroke="#d1d5db" stroke-width="0.7" d="M46.2 16.5v30M47.4 16.5v30"/>
+  <rect x="27" y="22" width="14" height="2.4" rx="1.2" fill="#fecaca" fill-opacity="0.85"/>
+  <rect x="27" y="27.5" width="10" height="1.8" rx="0.9" fill="#fecaca" fill-opacity="0.55"/>
 </svg>
